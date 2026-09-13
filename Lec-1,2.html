@@ -1,0 +1,1298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>LLD Notes — Lecture 1 & 2</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:        #0D1117;
+    --surface:   #161B22;
+    --surface2:  #1C2330;
+    --border:    #30363D;
+    --accent:    #58A6FF;
+    --green:     #3FB950;
+    --yellow:    #E3B341;
+    --purple:    #BC8CFF;
+    --muted:     #8B949E;
+    --text:      #C9D1D9;
+    --heading:   #F0F6FC;
+    --mono:      'JetBrains Mono', monospace;
+    --sans:      'Inter', sans-serif;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 14px;
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  /* ── TOP BAR ── */
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 28px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+  }
+
+  .topbar-title {
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 0.04em;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .topbar-title::before {
+    content: '▶';
+    font-size: 10px;
+    color: var(--green);
+  }
+
+  .topbar-controls {
+    display: flex;
+    gap: 8px;
+  }
+
+  .btn {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 600;
+    padding: 6px 14px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.15s;
+    letter-spacing: 0.03em;
+  }
+
+  .btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: rgba(88,166,255,0.07);
+  }
+
+  .btn.primary {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: rgba(88,166,255,0.1);
+  }
+
+  .btn.primary:hover {
+    background: rgba(88,166,255,0.2);
+  }
+
+  /* ── LAYOUT ── */
+  .container {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 32px 24px 80px;
+  }
+
+  .page-header {
+    margin-bottom: 36px;
+    padding-bottom: 24px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .page-header h1 {
+    font-family: var(--mono);
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--heading);
+    margin-bottom: 6px;
+  }
+
+  .page-header .meta {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .page-header .meta span {
+    color: var(--green);
+  }
+
+  /* ── LECTURE SECTION ── */
+  .lecture-block {
+    margin-bottom: 12px;
+  }
+
+  .lecture-toggle {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 14px 18px;
+    cursor: pointer;
+    text-align: left;
+    transition: border-color 0.15s, background 0.15s;
+    position: relative;
+  }
+
+  .lecture-toggle:hover {
+    border-color: var(--accent);
+    background: var(--surface2);
+  }
+
+  .lecture-toggle.open {
+    border-color: var(--accent);
+    border-bottom-color: var(--border);
+    background: var(--surface2);
+  }
+
+  .lecture-toggle .caret {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--accent);
+    transition: transform 0.2s;
+    flex-shrink: 0;
+    width: 16px;
+  }
+
+  .lecture-toggle.open .caret {
+    transform: rotate(90deg);
+  }
+
+  .lecture-toggle .lnum {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    flex-shrink: 0;
+  }
+
+  .lecture-toggle .ltitle {
+    font-family: var(--mono);
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--heading);
+    flex: 1;
+  }
+
+  .lecture-toggle .lcount {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    flex-shrink: 0;
+  }
+
+  .lecture-body {
+    border: 1px solid var(--accent);
+    border-top: none;
+    background: var(--bg);
+    display: none;
+  }
+
+  .lecture-body.open {
+    display: block;
+  }
+
+  /* ── TOPIC ── */
+  .topic-block {
+    border-bottom: 1px solid var(--border);
+  }
+
+  .topic-block:last-child {
+    border-bottom: none;
+  }
+
+  .topic-toggle {
+    width: 100%;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px 18px 12px 36px;
+    cursor: pointer;
+    text-align: left;
+    background: transparent;
+    border: none;
+    transition: background 0.12s;
+  }
+
+  .topic-toggle:hover {
+    background: rgba(88,166,255,0.04);
+  }
+
+  .topic-toggle.open {
+    background: rgba(88,166,255,0.06);
+  }
+
+  .topic-toggle .t-caret {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+    transition: transform 0.18s;
+    margin-top: 2px;
+    flex-shrink: 0;
+  }
+
+  .topic-toggle.open .t-caret {
+    transform: rotate(90deg);
+    color: var(--accent);
+  }
+
+  .topic-toggle .t-num {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    flex-shrink: 0;
+    margin-top: 1px;
+    min-width: 28px;
+  }
+
+  .topic-toggle .t-title {
+    font-family: var(--sans);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    flex: 1;
+    line-height: 1.5;
+  }
+
+  .topic-toggle.open .t-title {
+    color: var(--heading);
+  }
+
+  .topic-body {
+    display: none;
+    padding: 0 18px 16px 76px;
+  }
+
+  .topic-body.open {
+    display: block;
+  }
+
+  /* ── CONTENT INSIDE TOPICS ── */
+  .content-text {
+    font-size: 13px;
+    color: var(--text);
+    line-height: 1.7;
+    margin-bottom: 10px;
+  }
+
+  .subtopic-list {
+    list-style: none;
+    margin: 8px 0;
+  }
+
+  .subtopic-list li {
+    position: relative;
+    padding: 5px 0 5px 18px;
+    font-size: 13px;
+    color: var(--text);
+    line-height: 1.5;
+    border-bottom: 1px solid rgba(48,54,61,0.5);
+  }
+
+  .subtopic-list li:last-child {
+    border-bottom: none;
+  }
+
+  .subtopic-list li::before {
+    content: '─';
+    position: absolute;
+    left: 0;
+    color: var(--border);
+    font-family: var(--mono);
+  }
+
+  .subtopic-list li strong {
+    color: var(--heading);
+    font-weight: 600;
+  }
+
+  .subtopic-list li .tag {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--accent);
+    background: rgba(88,166,255,0.1);
+    padding: 1px 6px;
+    margin-left: 6px;
+  }
+
+  .subtopic-list li .tag.green {
+    color: var(--green);
+    background: rgba(63,185,80,0.1);
+  }
+
+  .subtopic-list li .tag.yellow {
+    color: var(--yellow);
+    background: rgba(227,179,65,0.1);
+  }
+
+  .subtopic-list li .tag.purple {
+    color: var(--purple);
+    background: rgba(188,140,255,0.1);
+  }
+
+  /* code block */
+  .code-block {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    padding: 12px 14px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text);
+    white-space: pre;
+    overflow-x: auto;
+    margin: 10px 0;
+    line-height: 1.6;
+  }
+
+  .code-block .kw { color: #FF7B72; }
+  .code-block .cl { color: #79C0FF; }
+  .code-block .fn { color: #D2A8FF; }
+  .code-block .cm { color: #8B949E; font-style: italic; }
+  .code-block .st { color: #A5D6FF; }
+
+  .tip-box {
+    background: rgba(63,185,80,0.07);
+    border: 1px solid rgba(63,185,80,0.25);
+    border-left: 3px solid var(--green);
+    padding: 10px 14px;
+    font-size: 12px;
+    color: var(--text);
+    margin: 10px 0;
+    font-family: var(--mono);
+  }
+
+  .tip-box .label {
+    color: var(--green);
+    font-weight: 700;
+    margin-right: 6px;
+  }
+
+  .warn-box {
+    background: rgba(227,179,65,0.07);
+    border: 1px solid rgba(227,179,65,0.25);
+    border-left: 3px solid var(--yellow);
+    padding: 10px 14px;
+    font-size: 12px;
+    color: var(--text);
+    margin: 10px 0;
+    font-family: var(--mono);
+  }
+
+  .warn-box .label {
+    color: var(--yellow);
+    font-weight: 700;
+    margin-right: 6px;
+  }
+
+  table.mini-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    margin: 10px 0;
+  }
+
+  table.mini-table th {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--accent);
+    background: var(--surface);
+    padding: 7px 10px;
+    text-align: left;
+    border: 1px solid var(--border);
+  }
+
+  table.mini-table td {
+    padding: 7px 10px;
+    border: 1px solid var(--border);
+    color: var(--text);
+    vertical-align: top;
+  }
+
+  table.mini-table tr:hover td {
+    background: rgba(88,166,255,0.04);
+  }
+
+  /* ── DIVIDER ── */
+  .section-divider {
+    height: 1px;
+    background: var(--border);
+    margin: 28px 0;
+  }
+
+  /* ── FINAL REVISION BLOCK ── */
+  .final-block {
+    margin-bottom: 12px;
+    border: 1px solid var(--purple);
+    background: var(--surface);
+  }
+
+  .final-toggle {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: rgba(188,140,255,0.07);
+    border: none;
+    padding: 14px 18px;
+    cursor: pointer;
+    text-align: left;
+    transition: background 0.15s;
+  }
+
+  .final-toggle:hover { background: rgba(188,140,255,0.13); }
+  .final-toggle.open  { background: rgba(188,140,255,0.13); }
+
+  .final-toggle .caret {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--purple);
+    transition: transform 0.2s;
+  }
+
+  .final-toggle.open .caret { transform: rotate(90deg); }
+
+  .final-toggle .ltitle {
+    font-family: var(--mono);
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--purple);
+    flex: 1;
+  }
+
+  .final-body {
+    display: none;
+    padding: 0;
+    background: var(--bg);
+    border-top: 1px solid rgba(188,140,255,0.3);
+  }
+
+  .final-body.open { display: block; }
+
+  /* progress bar */
+  .progress-bar-wrap {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .progress-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+
+  .progress-track {
+    flex: 1;
+    height: 4px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    background: var(--accent);
+    transition: width 0.3s;
+  }
+
+  .progress-count {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--accent);
+  }
+
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <div class="topbar-title">LLD_NOTES.md — Lecture 1 &amp; 2</div>
+  <div class="topbar-controls">
+    <button class="btn" onclick="collapseAll()">Collapse All</button>
+    <button class="btn primary" onclick="expandAll()">Expand All</button>
+  </div>
+</div>
+
+<div class="container">
+
+  <div class="page-header">
+    <h1>Low Level Design</h1>
+    <div class="meta">Lectures 1–2 &nbsp;·&nbsp; <span>SOLID Principles</span> &nbsp;·&nbsp; Design Patterns &nbsp;·&nbsp; Relationships</div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════
+       LECTURE 1
+  ════════════════════════════════════════════════ -->
+  <div class="lecture-block">
+    <button class="lecture-toggle" onclick="toggleLecture(this)">
+      <span class="caret">▶</span>
+      <span class="lnum">01</span>
+      <span class="ltitle">Introduction to LLD</span>
+      <span class="lcount">12 topics</span>
+    </button>
+    <div class="lecture-body">
+
+      <!-- 1 -->
+      <div class="topic-block">
+        <button class="topic-toggle" onclick="toggleTopic(this)">
+          <span class="t-caret">▶</span>
+          <span class="t-num">1.</span>
+          <span class="t-title">What is LLD?</span>
+        </button>
+        <div class="topic-body">
+          <p class="content-text">LLD (Low Level Design) focuses on classes, objects, and how they relate and interact with each other. It sits between High Level Design and actual code.</p>
+          <table class="mini-table">
+            <tr><th>Level</th><th>Focus</th></tr>
+            <tr><td>HLD</td><td>Overall system architecture</td></tr>
+            <tr><td><strong>LLD</strong></td><td>Classes, objects & their relationships</td></tr>
+            <tr><td>Code</td><td>Actual implementation</td></tr>
+          </table>
+          <div class="tip-box"><span class="label">GOAL</span>Clean · Flexible · Maintainable · Testable code</div>
+        </div>
+      </div>
+
+      <!-- 2 -->
+      <div class="topic-block">
+        <button class="topic-toggle" onclick="toggleTopic(this)">
+          <span class="t-caret">▶</span>
+          <span class="t-num">2.</span>
+          <span class="t-title">HLD vs LLD vs Code — Parking Lot Example</span>
+        </button>
+        <div class="topic-body">
+          <ul class="subtopic-list">
+            <li><strong>HLD</strong> — Parking system, Payment system, Entry system, Exit system</li>
+            <li><strong>LLD</strong> — ParkingLot, ParkingSpot, Vehicle, Ticket, Payment classes + their relationships</li>
+            <li><strong>Code</strong> — Implement those classes in C++/Java</li>
+          </ul>
+          <div class="tip-box"><span class="label">KEY</span>Designing properly is more important than just writing code. Clear design = easier coding.</div>
+        </div>
+      </div>
+
+      <!-- 3 -->
+      <div class="topic-block">
+        <button class="topic-toggle" onclick="toggleTopic(this)">
+          <span class="t-caret">▶</span>
+          <span class="t-num">3.</span>
+          <span class="t-title">Design Patterns</span>
+        </button>
+        <div class="topic-body">
+          <p class="content-text">A design pattern is a <strong>tested, reusable solution to a commonly occurring design problem</strong>. It prevents reinventing the same solution.</p>
+          <div class="warn-box"><span class="label">NOTE</span>Patterns are helpful but NOT mandatory. Your design just needs to follow good principles — patterns already do.</div>
+        </div>
+      </div>
+
+      <!-- 4 -->
+      <div class="topic-block">
+        <button class="topic-toggle" onclick="toggleTopic(this)">
+          <span class="t-caret">▶</span>
+          <span class="t-num">4.</span>
+          <span class="t-title">Categories of Design Patterns</span>
+        </button>
+        <div class="topic-body">
+          <ul class="subtopic-list">
+            <li><strong>Creational</strong> <span class="tag">How objects are created</span> — Singleton, Builder, Factory, Abstract Factory, Object Pool, Prototype</li>
+            <li><strong>Structural</strong> <span class="tag green">How classes/objects are arranged</span> — Adapter, Decorator, Proxy, Composite, Bridge, Facade, Flyweight</li>
+            <li><strong>Behavioral</strong> <span class="tag purple">How objects communicate</span> — Controls coordination and responsibility between objects</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- 5 -->
+      <div class="topic-block">
+        <button class="topic-toggle" onclick="toggleTopic(this)">
+          <span class="t-caret">▶</span>
+          <span class="t-num">5.</span>
+          <span class="t-title">Creational Patterns — Detail</span>
+        </button>
+        <div class="topic-body">
+          <p class="content-text">Controls <strong>how objects are created</strong>. Singleton example: only one object exists, same object is always returned.</p>
+          <div class="code-block"><span class="kw">class</span> <span class="cl">Database</span> {
+    <span class="kw">private static</span> <span class="cl">Database</span> instance;
+
+    <span class="kw">private</span> <span class="fn">Database</span>() {}
+
+    <span class="kw">public static</span> <span class="cl">Database</span> <span class="fn">getInstance</span>() {
+        <span class="kw">if</span> (instance == <span class="kw">null</span>)
+            instance = <span class="kw">new</span> <span class="cl">Database</span>();
+        <span class="kw">return</span> instance;
+    }
+}</div>
+          <div class="tip-box"><span class="label">RECALL</span>Creational = How do I create the object?</div>
+        </div>
+      </div>
+
+      <!-- 6 -->
+      <div class="topic-block">
+        <button class="topic-toggle" onclick="toggleTopic(this)">
+          <span class="t-caret">▶</span>
+          <span class="t-num">6.</span>
+          <span class="t-title">Structural Patterns — Detail</span>
+        </button>
+        <div class="topic-body">
+          <p class="content-text">Focus on <strong>how classes and objects are arranged/connected</strong>. Think of it as the skeleton of the system.</p>
+          <div class="code-block">Car
+ ├── Engine
+ ├── Wheel
+ ├── Headlight
+ └── Steering</div>
+          <p class="content-text">The question is not "how to create Engine?" but <strong>"how should Engine, Wheel, Headlight, Steering be arranged to build Car?"</strong></p>
+          <div class="tip-box"><span class="label">RECALL</span>Structural = How are objects/classes connected?</div>
+        </div>
+      </div>
+
+      <!-- 7 -->
+      <div class="topic-block">
+        <button class="topic-toggle" onclick="toggleTopic(this)">
+          <span class="t-caret">▶</span>
+          <span class="t-num">7.</span>
+          <span class="t-title">Behavioral Patterns — Detail</span>
+        </button>
+        <div class="topic-body">
+          <p class="content-text">Focus on <strong>how objects communicate and interact</strong>.</p>
+          <div class="code-block">Class A,  Class B,  Class C
+
+B → C         <span class="cm">// direct</span>
+B → A → C     <span class="cm">// via intermediary</span></div>
+          <div class="tip-box"><span class="label">RECALL</span>Behavioral = How do objects communicate?</div>
+        </div>
+      </div>
+
+      <!-- 8 -->
+      <div class="topic-block">
+        <button class="topic-toggle" onclick="toggleTopic(this)">
+          <span class="t-caret">▶</span>
+          <span class="t-num">8.</span>
+          <span class="t-title">IS-A Relationship</span>
+        </button>
+        <div class="topic-body">
+          <p class="content-text">IS-A = <strong>Inheritance / Parent-Child relationship</strong></p>
+          <div class="code-block">Vehicle
+ ├── TwoWheeler     <span class="cm">// TwoWheeler IS-A Vehicle</span>
+ └── FourWheeler    <span class="cm">// FourWheeler IS-A Vehicle</span>
+
+Employee
+ ├── Manager        <span class="cm">// Manager IS-A Employee</span>
+ └── CEO            <span class="cm">// CEO IS-A Employee</span></div>
+          <div class="code-block"><span class="kw">class</span> <span class="cl">TwoWheeler</span> <span class="kw">extends</span> <span class="cl">Vehicle</span> {}</div>
+          <div class="tip-box"><span class="label">RECALL</span>IS-A = Inheritance</div>
+        </div>
+      </div>
+
+      <!-- 9 -->
+      <div class="topic-block">
+        <button class="topic-toggle" onclick="toggleTopic(this)">
+          <span class="t-caret">▶</span>
+          <span class="t-num">9.</span>
+          <span class="t-title">HAS-A Relationship</span>
+        </button>
+        <div class="topic-body">
+          <p class="content-text">HAS-A = <strong>Association / Object relationship</strong>. One object contains or knows about another.</p>
+          <div class="code-block">House HAS-A Room
+Library HAS-A Book
+School HAS-A Student</div>
+          <div class="code-block"><span class="kw">class</span> <span class="cl">Library</span> {
+    <span class="cl">List</span>&lt;<span class="cl">Book</span>&gt; books;  <span class="cm">// Library HAS-A Book</span>
+}</div>
+          <p class="content-text">HAS-A further splits into <strong>Aggregation</strong> and <strong>Composition</strong>.</p>
+        </div>
+      </div>
+
+      <!-- 10 -->
+      <div class="topic-block">
+        <button class="topic-toggle" onclick="toggleTopic(this)">
+          <span class="t-caret">▶</span>
+          <span class="t-num">10.</span>
+          <span class="t-title">Aggregation — Weak HAS-A</span>
+        </button>
+        <div class="topic-body">
+          <p class="content-text"><strong>Weak HAS-A relationship</strong>. Both objects can exist independently.</p>
+          <div class="code-block">Library ◇──── Book
+
+<span class="cm">// Library destroyed → Book still exists ✓</span></div>
+          <div class="code-block"><span class="kw">class</span> <span class="cl">Library</span> {
+    <span class="cl">List</span>&lt;<span class="cl">Book</span>&gt; books = <span class="kw">new</span> <span class="cl">ArrayList</span>&lt;&gt;();  <span class="cm">// Book exists outside</span>
+
+    <span class="kw">public void</span> <span class="fn">addBook</span>(<span class="cl">Book</span> book) { books.<span class="fn">add</span>(book); }
+}</div>
+          <ul class="subtopic-list">
+            <li>UML: <strong>Hollow diamond ◇</strong></li>
+            <li>Independent lifetime — yes</li>
+          </ul>
+          <div class="tip-box"><span class="label">RECALL</span>Aggregation = Weak HAS-A = Both can live independently</div>
+        </div>
+      </div>
+
+      <!-- 11 -->
+      <div class="topic-block">
+        <button class="topic-toggle" onclick="toggleTopic(this)">
+          <span class="t-caret">▶</span>
+          <span class="t-num">11.</span>
+          <span class="t-title">Composition — Strong HAS-A</span>
+        </button>
+        <div class="topic-body">
+          <p class="content-text"><strong>Strong HAS-A relationship</strong>. Child's existence depends on the parent.</p>
+          <div class="code-block">House ◆──── Room
+
+<span class="cm">// House destroyed → Room destroyed too ✗</span></div>
+          <div class="code-block"><span class="kw">class</span> <span class="cl">House</span> {
+    <span class="kw">private final</span> <span class="cl">Room</span> room = <span class="kw">new</span> <span class="cl">Room</span>();  <span class="cm">// House owns Room's lifecycle</span>
+}</div>
+          <ul class="subtopic-list">
+            <li>UML: <strong>Filled diamond ◆</strong></li>
+            <li>Lifecycle dependency — yes</li>
+          </ul>
+          <div class="tip-box"><span class="label">RECALL</span>Composition = Strong HAS-A = Dependent lifetime</div>
+        </div>
+      </div>
+
+      <!-- 12 -->
+      <div class="topic-block">
+        <button class="topic-toggle" onclick="toggleTopic(this)">
+          <span class="t-caret">▶</span>
+          <span class="t-num">12.</span>
+          <span class="t-title">Aggregation vs Composition</span>
+        </button>
+        <div class="topic-body">
+          <table class="mini-table">
+            <tr><th>Feature</th><th>Aggregation</th><th>Composition</th></tr>
+            <tr><td>Relationship</td><td>HAS-A</td><td>HAS-A</td></tr>
+            <tr><td>Strength</td><td>Weak</td><td>Strong</td></tr>
+            <tr><td>Independent existence</td><td>Yes ✓</td><td>No ✗</td></tr>
+            <tr><td>Lifecycle dependency</td><td>No</td><td>Yes</td></tr>
+            <tr><td>Example</td><td>Library → Book</td><td>House → Room</td></tr>
+            <tr><td>UML</td><td>◇ Hollow diamond</td><td>◆ Filled diamond</td></tr>
+          </table>
+          <div class="tip-box"><span class="label">QUICK TEST</span>"Can the child exist without the parent?" → YES = Aggregation · NO = Composition</div>
+        </div>
+      </div>
+
+    </div><!-- /lecture-body -->
+  </div><!-- /lecture-block -->
+
+
+  <!-- ═══════════════════════════════════════════════
+       LECTURE 2
+  ════════════════════════════════════════════════ -->
+  <div class="lecture-block">
+    <button class="lecture-toggle" onclick="toggleLecture(this)">
+      <span class="caret">▶</span>
+      <span class="lnum">02</span>
+      <span class="ltitle">SOLID Principles</span>
+      <span class="lcount">20 topics</span>
+    </button>
+    <div class="lecture-body">
+
+      <!-- SOLID Intro -->
+      <div class="topic-block">
+        <button class="topic-toggle" onclick="toggleTopic(this)">
+          <span class="t-caret">▶</span>
+          <span class="t-num">1.</span>
+          <span class="t-title">What is SOLID?</span>
+        </button>
+        <div class="topic-body">
+          <p class="content-text">SOLID is a set of fundamental design principles for creating clean, flexible, maintainable, testable, less duplicated code.</p>
+          <div class="code-block">S → Single Responsibility Principle
+O → Open/Closed Principle
+L → Liskov Substitution Principle
+I → Interface Segregation Principle
+D → Dependency Inversion Principle</div>
+          <div class="warn-box"><span class="label">NOTE</span>Design patterns are not mandatory — but whatever design you create should follow principles like SOLID.</div>
+        </div>
+      </div>
+
+      <!-- SRP -->
+      <div class="topic-block">
+        <button class="topic-toggle" onclick="toggleTopic(this)">
+          <span class="t-caret">▶</span>
+          <span class="t-num">2.</span>
+          <span class="t-title">S — Single Responsibility Principle (SRP)</span>
+        </button>
+        <div class="topic-body">
+          <div class="tip-box"><span class="label">DEFINITION</span>A class should have only one reason to change. One class = one responsibility.</div>
+        </div>
+      </div>
+
+      <div class="topic-block">
+        <button class="topic-toggle" onclick="toggleTopic(this)">
+          <span class="t-caret">▶</span>
+          <span class="t-num">3.</span>
+          <span class="t-title">SRP — Violation</span>
+        </button>
+        <div class="topic-body">
+          <div class="code-block"><span class="kw">class</span> <span class="cl">Invoice</span> {
+    <span class="kw">void</span> <span class="fn">calculateTotal</span>() {}  <span class="cm">// business logic</span>
+    <span class="kw">void</span> <span class="fn">saveToDB</span>() {}        <span class="cm">// database logic</span>
+    <span class="kw">void</span> <span class="fn">printInvoice</span>() {}    <span class="cm">// printing logic</span>
+}   <span class="cm">// ← 3 responsibilities in 1 class</span></div>
+          <ul class="subtopic-list">
+            <li>Tax changes → modify Invoice</li>
+            <li>DB changes → modify Invoice</li>
+            <li>Print format changes → modify Invoice</li>
+            <li>Result: <strong>more testing, more bugs, harder maintenance</strong></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="topic-block">
+        <button class="topic-toggle" onclick="toggleTopic(this)">
+          <span class="t-caret">▶</span>
+          <span class="t-num">4.</span>
+          <span class="t-title">SRP — Correct Design</span>
+        </button>
+        <div class="topic-body">
+          <div class="code-block"><span class="kw">class</span> <span class="cl">Invoice</span>           { <span class="kw">void</span> <span class="fn">calculateTotal</span>() {} }
+<span class="kw">class</span> <span class="cl">InvoiceRepository</span> { <span class="kw">void</span> <span class="fn">saveToDB</span>(<span class="cl">Invoice</span> i) {} }
+<span class="kw">class</span> <span class="cl">InvoicePrinter</span>    { <span class="kw">void</span> <span class="fn">print</span>(<span class="cl">Invoice</span> i) {} }</div>
+          <div class="tip-box"><span class="label">BENEFIT</span>DB logic changes → only InvoiceRepository changes. Invoice & InvoicePrinter untouched.</div>
+        </div>
+      </div>
+
+      <div class="topic-block">
+        <button class="topic-toggle" onclick="toggleTopic(this)">
+          <span class="t-caret">▶</span>
+          <span class="t-num">5.</span>
+          <span class="t-title">SRP — Important Confusion</span>
+        </button>
+        <div class="topic-body">
+          <div class="warn-box"><span class="label">SRP ≠</span>One method per class. That causes class explosion.</div>
+          <p class="content-text">A class can have multiple methods if they belong to the <strong>same responsibility</strong>.</p>
+          <div class="code-block"><span class="kw">class</span> <span class="cl">InvoiceCalculator</span> {
+    <span class="kw">double</span> <span class="fn">calculateSubtotal</span>() {}  <span class="cm">// all related to</span>
+    <span class="kw">double</span> <span class="fn">calculateTax</span>() {}       <span class="cm">// invoice calculation</span>
+    <span class="kw">double</span> <span class="fn">calculateTotal</span>() {}     <span class="cm">// → ONE responsibility ✓</span>
+}</div>
+        </div>
+      </div>
+
+      <!-- OCP -->
+      <div class="topic-block">
+        <button class="topic-toggle" onclick="toggleTopic(this)">
+          <span class="t-caret">▶</span>
+          <span class="t-num">6.</span>
+          <span class="t-title">O — Open/Closed Principle (OCP)</span>
+        </button>
+        <div class="topic-body">
+          <div class="tip-box"><span class="label">DEFINITION</span>Open for extension, closed for modification. Add new functionality without touching already tested code.</div>
+        </div>
+      </div>
+
+      <div class="topic-block">
+        <button class="topic-toggle" onclick="toggleTopic(this)">
+          <span class="t-caret">▶</span>
+          <span class="t-num">7.</span>
+          <span class="t-title">OCP — Problem</span>
+        </button>
+        <div class="topic-body">
+          <div class="code-block"><span class="kw">class</span> <span class="cl">InvoiceDAO</span> {
+    <span class="kw">void</span> <span class="fn">saveToDB</span>() {}     <span class="cm">// SQL</span>
+    <span class="kw">void</span> <span class="fn">saveToFile</span>() {}   <span class="cm">// file</span>
+    <span class="kw">void</span> <span class="fn">saveToNoSQL</span>() {}  <span class="cm">// NoSQL  ← keep adding = keep modifying!</span>
+}</div>
+          <p class="content-text">Every new storage option modifies existing, possibly deployed code. More risk of bugs in production.</p>
+        </div>
+      </div>
+
+      <div class="topic-block">
+        <button class="topic-toggle" onclick="toggleTopic(this)">
+          <span class="t-caret">▶</span>
+          <span class="t-num">8.</span>
+          <span class="t-title">OCP — Correct Design</span>
+        </button>
+        <div class="topic-body">
+          <div class="code-block"><span class="kw">interface</span> <span class="cl">InvoiceDAO</span>       { <span class="kw">void</span> <span class="fn">save</span>(); }
+
+<span class="kw">class</span> <span class="cl">DatabaseInvoiceDAO</span> <span class="kw">implements</span> <span class="cl">InvoiceDAO</span> { <span class="kw">public void</span> <span class="fn">save</span>() {} }
+<span class="kw">class</span> <span class="cl">FileInvoiceDAO</span>     <span class="kw">implements</span> <span class="cl">InvoiceDAO</span> { <span class="kw">public void</span> <span class="fn">save</span>() {} }
+<span class="kw">class</span> <span class="cl">CloudInvoiceDAO</span>    <span class="kw">implements</span> <span class="cl">InvoiceDAO</span> { <span class="kw">public void</span> <span class="fn">save</span>() {} }
+<span class="cm">// ↑ new storage = new class, no existing code touched</span></div>
+          <div class="tip-box"><span class="label">RECALL</span>OCP = Add new behavior by extending, not by modifying existing code.</div>
+        </div>
+      </div>
+
+      <!-- LSP -->
+      <div class="topic-block">
+        <button class="topic-toggle" onclick="toggleTopic(this)">
+          <span class="t-caret">▶</span>
+          <span class="t-num">9.</span>
+          <span class="t-title">L — Liskov Substitution Principle (LSP)</span>
+        </button>
+        <div class="topic-body">
+          <div class="tip-box"><span class="label">DEFINITION</span>An object of a superclass should be replaceable by an object of its subclass without breaking the application.</div>
+          <div class="code-block"><span class="cm">// If B IS-A A, then:</span>
+<span class="cl">A</span> obj = <span class="kw">new</span> <span class="cl">B</span>();  <span class="cm">// should still work correctly</span></div>
+        </div>
+      </div>
+
+      <div class="topic-block">
+        <button class="topic-toggle" onclick="toggleTopic(this)">
+          <span class="t-caret">▶</span>
+          <span class="t-num">10.</span>
+          <span class="t-title">LSP — Bad Example</span>
+        </button>
+        <div class="topic-body">
+          <div class="code-block"><span class="kw">abstract class</span> <span class="cl">Bike</span> {
+    <span class="kw">abstract void</span> <span class="fn">turnOnEngine</span>();
+    <span class="kw">abstract void</span> <span class="fn">accelerate</span>();
+}
+
+<span class="kw">class</span> <span class="cl">Bicycle</span> <span class="kw">extends</span> <span class="cl">Bike</span> {
+    <span class="kw">void</span> <span class="fn">turnOnEngine</span>() { <span class="kw">throw new</span> <span class="cl">UnsupportedOperationException</span>(); } <span class="cm">// ← no engine!</span>
+    <span class="kw">void</span> <span class="fn">accelerate</span>() { <span class="cm">/* pedal */</span> }
+}</div>
+          <p class="content-text">Client calls <code>bike->turnOnEngine()</code> — works for Motorcycle, <strong>crashes for Bicycle</strong>. LSP violated.</p>
+        </div>
+      </div>
+
+      <div class="topic-block">
+        <button class="topic-toggle" onclick="toggleTopic(this)">
+          <span class="t-caret">▶</span>
+          <span class="t-num">11.</span>
+          <span class="t-title">LSP — Correct Design</span>
+        </button>
+        <div class="topic-body">
+          <div class="code-block"><span class="kw">interface</span> <span class="cl">Engine</span> { <span class="kw">void</span> <span class="fn">turnOnEngine</span>(); <span class="kw">void</span> <span class="fn">turnOffEngine</span>(); }
+<span class="kw">interface</span> <span class="cl">Bike</span>   { <span class="kw">void</span> <span class="fn">accelerate</span>(); <span class="kw">void</span> <span class="fn">applyBrake</span>(); }
+
+<span class="kw">class</span> <span class="cl">Motorcycle</span> <span class="kw">implements</span> <span class="cl">Bike</span>, <span class="cl">Engine</span> { <span class="cm">/* has engine */</span> }
+<span class="kw">class</span> <span class="cl">Bicycle</span>    <span class="kw">implements</span> <span class="cl">Bike</span>          { <span class="cm">/* no engine forced */</span> }</div>
+          <div class="tip-box"><span class="label">RECALL</span>Don't make a child support behavior the parent promises but the child cannot provide.</div>
+        </div>
+      </div>
+
+      <!-- ISP -->
+      <div class="topic-block">
+        <button class="topic-toggle" onclick="toggleTopic(this)">
+          <span class="t-caret">▶</span>
+          <span class="t-num">12.</span>
+          <span class="t-title">I — Interface Segregation Principle (ISP)</span>
+        </button>
+        <div class="topic-body">
+          <div class="tip-box"><span class="label">DEFINITION</span>Clients should not be forced to implement interfaces/functions they don't need. Keep interfaces small and focused.</div>
+        </div>
+      </div>
+
+      <div class="topic-block">
+        <button class="topic-toggle" onclick="toggleTopic(this)">
+          <span class="t-caret">▶</span>
+          <span class="t-num">13.</span>
+          <span class="t-title">ISP — Bad Example</span>
+        </button>
+        <div class="topic-body">
+          <div class="code-block"><span class="kw">interface</span> <span class="cl">RestaurantEmployee</span> {
+    <span class="kw">void</span> <span class="fn">takeOrder</span>();   <span class="kw">void</span> <span class="fn">serveDrinks</span>();  <span class="cm">// waiter stuff</span>
+    <span class="kw">void</span> <span class="fn">cleanKitchen</span>();                      <span class="cm">// maintenance stuff</span>
+    <span class="kw">void</span> <span class="fn">prepareFood</span>(); <span class="kw">void</span> <span class="fn">decideMenu</span>();  <span class="cm">// chef stuff — Waiter forced!</span>
+}
+
+<span class="kw">class</span> <span class="cl">Waiter</span> <span class="kw">implements</span> <span class="cl">RestaurantEmployee</span> {
+    <span class="kw">public void</span> <span class="fn">prepareFood</span>() { <span class="kw">throw new</span> <span class="cl">UnsupportedOperationException</span>(); } <span class="cm">// forced → ISP violation</span>
+}</div>
+        </div>
+      </div>
+
+      <div class="topic-block">
+        <button class="topic-toggle" onclick="toggleTopic(this)">
+          <span class="t-caret">▶</span>
+          <span class="t-num">14.</span>
+          <span class="t-title">ISP — Correct Design</span>
+        </button>
+        <div class="topic-body">
+          <div class="code-block"><span class="kw">interface</span> <span class="cl">WaiterTask</span>      { <span class="kw">void</span> <span class="fn">takeOrder</span>(); <span class="kw">void</span> <span class="fn">serveDrinks</span>(); }
+<span class="kw">interface</span> <span class="cl">ChefTask</span>        { <span class="kw">void</span> <span class="fn">prepareFood</span>(); <span class="kw">void</span> <span class="fn">decideMenu</span>(); }
+<span class="kw">interface</span> <span class="cl">MaintenanceTask</span> { <span class="kw">void</span> <span class="fn">cleanKitchen</span>(); }
+
+<span class="kw">class</span> <span class="cl">Waiter</span> <span class="kw">implements</span> <span class="cl">WaiterTask</span> { <span class="cm">/* only what it needs ✓ */</span> }</div>
+          <div class="tip-box"><span class="label">RECALL</span>ISP = Keep interfaces small and focused.</div>
+        </div>
+      </div>
+
+      <div class="topic-block">
+        <button class="topic-toggle" onclick="toggleTopic(this)">
+          <span class="t-caret">▶</span>
+          <span class="t-num">15.</span>
+          <span class="t-title">LSP vs ISP — Interview Distinction</span>
+        </button>
+        <div class="topic-body">
+          <table class="mini-table">
+            <tr><th>Principle</th><th>Focus</th><th>Main Question</th><th>Example</th></tr>
+            <tr><td><strong>LSP</strong></td><td>Behavior / substitutability</td><td>Can I replace parent object with child without breaking client?</td><td>Motorcycle → Bicycle breaks</td></tr>
+            <tr><td><strong>ISP</strong></td><td>Interface design</td><td>Am I forcing class to implement things it doesn't need?</td><td>Waiter forced to implement prepareFood()</td></tr>
+          </table>
+          <div class="code-block">LSP  →  Replacement
+ISP  →  Interface</div>
+        </div>
+      </div>
+
+      <!-- DIP -->
+      <div class="topic-block">
+        <button class="topic-toggle" onclick="toggleTopic(this)">
+          <span class="t-caret">▶</span>
+          <span class="t-num">16.</span>
+          <span class="t-title">D — Dependency Inversion Principle (DIP)</span>
+        </button>
+        <div class="topic-body">
+          <div class="tip-box"><span class="label">DEFINITION</span>High-level components should not depend on low-level components. Both should depend on an abstraction.</div>
+          <div class="code-block"><span class="cm">// Bad:</span>
+High Level Class → Concrete Low Level Class
+
+<span class="cm">// Good:</span>
+High Level Class → Interface ← Low Level Classes</div>
+        </div>
+      </div>
+
+      <div class="topic-block">
+        <button class="topic-toggle" onclick="toggleTopic(this)">
+          <span class="t-caret">▶</span>
+          <span class="t-num">17.</span>
+          <span class="t-title">DIP — Bad Example</span>
+        </button>
+        <div class="topic-body">
+          <div class="code-block"><span class="kw">class</span> <span class="cl">MacBook</span> {
+    <span class="kw">private</span> <span class="cl">WiredKeyboard</span> keyboard = <span class="kw">new</span> <span class="cl">WiredKeyboard</span>();  <span class="cm">// ← tightly coupled!</span>
+
+    <span class="kw">public void</span> <span class="fn">type</span>() { keyboard.<span class="fn">type</span>(); }
+}
+<span class="cm">// Want Bluetooth? Must modify MacBook.</span></div>
+        </div>
+      </div>
+
+      <div class="topic-block">
+        <button class="topic-toggle" onclick="toggleTopic(this)">
+          <span class="t-caret">▶</span>
+          <span class="t-num">18.</span>
+          <span class="t-title">DIP — Correct Design</span>
+        </button>
+        <div class="topic-body">
+          <div class="code-block"><span class="kw">interface</span> <span class="cl">Keyboard</span>         { <span class="kw">void</span> <span class="fn">type</span>(); }
+<span class="kw">class</span> <span class="cl">WiredKeyboard</span>    <span class="kw">implements</span> <span class="cl">Keyboard</span> { <span class="kw">public void</span> <span class="fn">type</span>() {} }
+<span class="kw">class</span> <span class="cl">BluetoothKeyboard</span> <span class="kw">implements</span> <span class="cl">Keyboard</span> { <span class="kw">public void</span> <span class="fn">type</span>() {} }
+
+<span class="kw">class</span> <span class="cl">MacBook</span> {
+    <span class="kw">private</span> <span class="cl">Keyboard</span> keyboard;  <span class="cm">// ← depends on abstraction ✓</span>
+
+    <span class="kw">public</span> <span class="fn">MacBook</span>(<span class="cl">Keyboard</span> kb) { <span class="kw">this</span>.keyboard = kb; }
+    <span class="kw">public void</span> <span class="fn">type</span>() { keyboard.<span class="fn">type</span>(); }
+}</div>
+          <p class="content-text">MacBook doesn't care if it's Wired, Bluetooth, or any future keyboard type.</p>
+          <div class="tip-box"><span class="label">RECALL</span>DIP = Depend on abstraction, not concrete implementation.</div>
+        </div>
+      </div>
+
+      <!-- SOLID Table -->
+      <div class="topic-block">
+        <button class="topic-toggle" onclick="toggleTopic(this)">
+          <span class="t-caret">▶</span>
+          <span class="t-num">19.</span>
+          <span class="t-title">SOLID — One-Table Revision</span>
+        </button>
+        <div class="topic-body">
+          <table class="mini-table">
+            <tr><th>Principle</th><th>Simple Meaning</th><th>Main Problem Solved</th></tr>
+            <tr><td><strong>S — SRP</strong></td><td>One class → one responsibility</td><td>Class doing too many jobs</td></tr>
+            <tr><td><strong>O — OCP</strong></td><td>Extend instead of modifying</td><td>Changing tested/deployed code</td></tr>
+            <tr><td><strong>L — LSP</strong></td><td>Child safely replaces parent</td><td>Broken behavior after substitution</td></tr>
+            <tr><td><strong>I — ISP</strong></td><td>Small, focused interfaces</td><td>Unnecessary methods forced</td></tr>
+            <tr><td><strong>D — DIP</strong></td><td>Depend on abstraction</td><td>Tight coupling to concrete class</td></tr>
+          </table>
+        </div>
+      </div>
+
+      <!-- Memory -->
+      <div class="topic-block">
+        <button class="topic-toggle" onclick="toggleTopic(this)">
+          <span class="t-caret">▶</span>
+          <span class="t-num">20.</span>
+          <span class="t-title">SOLID — Super Simple Memory</span>
+        </button>
+        <div class="topic-body">
+          <div class="code-block">S → Invoice: calculateTotal ≠ saveToDB ≠ printInvoice
+
+O → InvoiceDAO + new storage class (don't touch existing)
+
+L → Motorcycle vs Bicycle
+    → Child must safely replace parent
+
+I → Waiter / Chef / Maintenance (separate interfaces)
+
+D → MacBook → Keyboard (not WiredKeyboard)</div>
+        </div>
+      </div>
+
+    </div><!-- /lecture-body -->
+  </div><!-- /lecture-block -->
+
+
+  <!-- ═══════════════════════════════════════════════
+       FINAL REVISION
+  ════════════════════════════════════════════════ -->
+  <div class="section-divider"></div>
+
+  <div class="final-block">
+    <button class="final-toggle" onclick="toggleFinal(this)">
+      <span class="caret">▶</span>
+      <span class="ltitle">⚡ Final Combined Revision</span>
+    </button>
+    <div class="final-body">
+
+      <div class="topic-block">
+        <button class="topic-toggle" onclick="toggleTopic(this)">
+          <span class="t-caret">▶</span>
+          <span class="t-num">1.</span>
+          <span class="t-title">Lecture 1 + 2 Mental Model</span>
+        </button>
+        <div class="topic-body">
+          <div class="code-block">HLD → System Architecture
+LLD → Classes + Objects + Relationships
+Code → Implementation
+
+IS-A     → Inheritance
+HAS-A    → Association
+           ├── Aggregation → Weak (independent)
+           └── Composition → Strong (dependent)
+
+Creational → Object Creation
+Structural → Object Arrangement
+Behavioral → Object Communication
+
+S → One responsibility
+O → Extend, don't modify
+L → Safe substitution
+I → Small interfaces
+D → Depend on abstraction</div>
+        </div>
+      </div>
+
+      <div class="topic-block">
+        <button class="topic-toggle" onclick="toggleTopic(this)">
+          <span class="t-caret">▶</span>
+          <span class="t-num">2.</span>
+          <span class="t-title">Interview Recall — 30 Seconds</span>
+        </button>
+        <div class="topic-body">
+          <ul class="subtopic-list">
+            <li><strong>LLD</strong> — Classes, objects, relationships. Between HLD and code. Goal: Clean, Flexible, Maintainable, Testable.</li>
+            <li><strong>Patterns</strong> — Creational (creation) · Structural (arrangement) · Behavioral (communication)</li>
+            <li><strong>IS-A</strong> — Inheritance &nbsp;|&nbsp; <strong>HAS-A</strong> — Association</li>
+            <li><strong>Aggregation</strong> — Weak, independent lifetime · <strong>Composition</strong> — Strong, dependent lifetime</li>
+            <li><strong>S</strong> — One responsibility · <strong>O</strong> — Extend, don't modify · <strong>L</strong> — Safe substitution · <strong>I</strong> — No forced methods · <strong>D</strong> — Depend on abstraction</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="topic-block">
+        <button class="topic-toggle" onclick="toggleTopic(this)">
+          <span class="t-caret">▶</span>
+          <span class="t-num">3.</span>
+          <span class="t-title">One-Line Examples for Every Concept</span>
+        </button>
+        <div class="topic-body">
+          <div class="code-block">LLD         → ParkingLot has Vehicle, Ticket, ParkingSpot classes
+Creational  → Singleton creates only one object
+Structural  → Car connects Engine, Wheel, Steering
+Behavioral  → Objects communicate/coordinate
+
+IS-A        → Motorcycle IS-A Bike
+HAS-A       → Car HAS-A Engine
+Aggregation → Library HAS-A Book. Book exists without Library.
+Composition → House HAS-A Room. Room depends on House.
+
+SRP → Invoice calculates; Repository saves; Printer prints
+OCP → Add NoSQLDAO instead of modifying existing DAO
+LSP → Child must safely replace parent
+ISP → Waiter shouldn't implement Chef methods
+DIP → MacBook depends on Keyboard interface, not WiredKeyboard</div>
+        </div>
+      </div>
+
+      <div class="topic-block" style="border-bottom:none">
+        <button class="topic-toggle" onclick="toggleTopic(this)">
+          <span class="t-caret">▶</span>
+          <span class="t-num">4.</span>
+          <span class="t-title">Final Recall Formula</span>
+        </button>
+        <div class="topic-body">
+          <div class="code-block">LLD
+│
+├── Classes
+├── Objects
+├── Relationships
+│
+├── Design Patterns
+│   ├── Creational  → Creation
+│   ├── Structural  → Arrangement
+│   └── Behavioral  → Communication
+│
+└── SOLID
+    ├── S → Responsibility
+    ├── O → Extension
+    ├── L → Substitution
+    ├── I → Interfaces
+    └── D → Abstraction</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div><!-- /container -->
+
+<script>
+  function toggleLecture(btn) {
+    const body = btn.nextElementSibling;
+    const isOpen = btn.classList.contains('open');
+    btn.classList.toggle('open', !isOpen);
+    body.classList.toggle('open', !isOpen);
+  }
+
+  function toggleTopic(btn) {
+    const body = btn.nextElementSibling;
+    const isOpen = btn.classList.contains('open');
+    btn.classList.toggle('open', !isOpen);
+    body.classList.toggle('open', !isOpen);
+  }
+
+  function toggleFinal(btn) {
+    const body = btn.nextElementSibling;
+    const isOpen = btn.classList.contains('open');
+    btn.classList.toggle('open', !isOpen);
+    body.classList.toggle('open', !isOpen);
+  }
+
+  function expandAll() {
+    document.querySelectorAll('.lecture-toggle, .topic-toggle, .final-toggle').forEach(btn => {
+      btn.classList.add('open');
+      btn.nextElementSibling.classList.add('open');
+    });
+  }
+
+  function collapseAll() {
+    document.querySelectorAll('.lecture-toggle, .topic-toggle, .final-toggle').forEach(btn => {
+      btn.classList.remove('open');
+      btn.nextElementSibling.classList.remove('open');
+    });
+  }
+</script>
+
+</body>
+</html>
