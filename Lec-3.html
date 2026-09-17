@@ -1,0 +1,953 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>LLD Notes — Lecture 3</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:        #0D1117;
+    --surface:   #161B22;
+    --surface2:  #1C2330;
+    --border:    #30363D;
+    --accent:    #58A6FF;
+    --green:     #3FB950;
+    --yellow:    #E3B341;
+    --purple:    #BC8CFF;
+    --muted:     #8B949E;
+    --text:      #C9D1D9;
+    --heading:   #F0F6FC;
+    --mono:      'JetBrains Mono', monospace;
+    --sans:      'Inter', sans-serif;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 14px;
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  .topbar {
+    position: sticky; top: 0; z-index: 100;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 28px;
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  }
+
+  .topbar-title {
+    font-family: var(--mono); font-size: 13px; font-weight: 700;
+    color: var(--accent); letter-spacing: 0.04em;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .topbar-title::before { content: '▶'; font-size: 10px; color: var(--green); }
+
+  .topbar-controls { display: flex; gap: 8px; }
+
+  .btn {
+    font-family: var(--mono); font-size: 11px; font-weight: 600;
+    padding: 6px 14px; border: 1px solid var(--border);
+    background: transparent; color: var(--muted); cursor: pointer;
+    transition: all 0.15s; letter-spacing: 0.03em;
+  }
+  .btn:hover { border-color: var(--accent); color: var(--accent); background: rgba(88,166,255,0.07); }
+  .btn.primary { border-color: var(--accent); color: var(--accent); background: rgba(88,166,255,0.1); }
+  .btn.primary:hover { background: rgba(88,166,255,0.2); }
+
+  .container { max-width: 860px; margin: 0 auto; padding: 32px 24px 80px; }
+
+  .page-header { margin-bottom: 36px; padding-bottom: 24px; border-bottom: 1px solid var(--border); }
+  .page-header h1 { font-family: var(--mono); font-size: 22px; font-weight: 700; color: var(--heading); margin-bottom: 6px; }
+  .page-header .meta { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+  .page-header .meta span { color: var(--green); }
+
+  .lecture-block { margin-bottom: 12px; }
+
+  .lecture-toggle {
+    width: 100%; display: flex; align-items: center; gap: 12px;
+    background: var(--surface); border: 1px solid var(--border);
+    padding: 14px 18px; cursor: pointer; text-align: left;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .lecture-toggle:hover { border-color: var(--accent); background: var(--surface2); }
+  .lecture-toggle.open { border-color: var(--accent); border-bottom-color: var(--border); background: var(--surface2); }
+  .lecture-toggle .caret { font-family: var(--mono); font-size: 11px; color: var(--accent); transition: transform 0.2s; flex-shrink: 0; width: 16px; }
+  .lecture-toggle.open .caret { transform: rotate(90deg); }
+  .lecture-toggle .lnum { font-family: var(--mono); font-size: 11px; color: var(--muted); flex-shrink: 0; }
+  .lecture-toggle .ltitle { font-family: var(--mono); font-size: 14px; font-weight: 700; color: var(--heading); flex: 1; }
+  .lecture-toggle .lcount { font-family: var(--mono); font-size: 11px; color: var(--muted); flex-shrink: 0; }
+
+  .lecture-body { border: 1px solid var(--accent); border-top: none; background: var(--bg); display: none; }
+  .lecture-body.open { display: block; }
+
+  .topic-block { border-bottom: 1px solid var(--border); }
+  .topic-block:last-child { border-bottom: none; }
+
+  .topic-toggle {
+    width: 100%; display: flex; align-items: flex-start; gap: 12px;
+    padding: 12px 18px 12px 36px; cursor: pointer; text-align: left;
+    background: transparent; border: none; transition: background 0.12s;
+  }
+  .topic-toggle:hover { background: rgba(88,166,255,0.04); }
+  .topic-toggle.open { background: rgba(88,166,255,0.06); }
+  .topic-toggle .t-caret { font-family: var(--mono); font-size: 10px; color: var(--muted); transition: transform 0.18s; margin-top: 2px; flex-shrink: 0; }
+  .topic-toggle.open .t-caret { transform: rotate(90deg); color: var(--accent); }
+  .topic-toggle .t-num { font-family: var(--mono); font-size: 11px; color: var(--muted); flex-shrink: 0; margin-top: 1px; min-width: 28px; }
+  .topic-toggle .t-title { font-family: var(--sans); font-size: 13px; font-weight: 600; color: var(--text); flex: 1; line-height: 1.5; }
+  .topic-toggle.open .t-title { color: var(--heading); }
+
+  .topic-body { display: none; padding: 0 18px 16px 76px; }
+  .topic-body.open { display: block; }
+
+  .content-text { font-size: 13px; color: var(--text); line-height: 1.7; margin-bottom: 10px; }
+
+  .subtopic-list { list-style: none; margin: 8px 0; }
+  .subtopic-list li {
+    position: relative; padding: 5px 0 5px 18px;
+    font-size: 13px; color: var(--text); line-height: 1.5;
+    border-bottom: 1px solid rgba(48,54,61,0.5);
+  }
+  .subtopic-list li:last-child { border-bottom: none; }
+  .subtopic-list li::before { content: '─'; position: absolute; left: 0; color: var(--border); font-family: var(--mono); }
+  .subtopic-list li strong { color: var(--heading); font-weight: 600; }
+  .subtopic-list li .tag { font-family: var(--mono); font-size: 11px; color: var(--accent); background: rgba(88,166,255,0.1); padding: 1px 6px; margin-left: 6px; }
+  .subtopic-list li .tag.green { color: var(--green); background: rgba(63,185,80,0.1); }
+  .subtopic-list li .tag.yellow { color: var(--yellow); background: rgba(227,179,65,0.1); }
+  .subtopic-list li .tag.purple { color: var(--purple); background: rgba(188,140,255,0.1); }
+
+  .code-block {
+    background: var(--surface); border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    padding: 12px 14px; font-family: var(--mono); font-size: 12px;
+    color: var(--text); white-space: pre; overflow-x: auto; margin: 10px 0; line-height: 1.6;
+  }
+  .code-block .kw  { color: #FF7B72; }
+  .code-block .cl  { color: #79C0FF; }
+  .code-block .fn  { color: #D2A8FF; }
+  .code-block .cm  { color: #8B949E; font-style: italic; }
+  .code-block .st  { color: #A5D6FF; }
+  .code-block .an  { color: #E3B341; }
+
+  .tip-box {
+    background: rgba(63,185,80,0.07); border: 1px solid rgba(63,185,80,0.25);
+    border-left: 3px solid var(--green); padding: 10px 14px;
+    font-size: 12px; color: var(--text); margin: 10px 0; font-family: var(--mono);
+  }
+  .tip-box .label { color: var(--green); font-weight: 700; margin-right: 6px; }
+
+  .warn-box {
+    background: rgba(227,179,65,0.07); border: 1px solid rgba(227,179,65,0.25);
+    border-left: 3px solid var(--yellow); padding: 10px 14px;
+    font-size: 12px; color: var(--text); margin: 10px 0; font-family: var(--mono);
+  }
+  .warn-box .label { color: var(--yellow); font-weight: 700; margin-right: 6px; }
+
+  table.mini-table { width: 100%; border-collapse: collapse; font-size: 12px; margin: 10px 0; }
+  table.mini-table th { font-family: var(--mono); font-size: 11px; font-weight: 700; color: var(--accent); background: var(--surface); padding: 7px 10px; text-align: left; border: 1px solid var(--border); }
+  table.mini-table td { padding: 7px 10px; border: 1px solid var(--border); color: var(--text); vertical-align: top; }
+  table.mini-table tr:hover td { background: rgba(88,166,255,0.04); }
+
+  .section-divider { height: 1px; background: var(--border); margin: 28px 0; }
+
+  .final-block { margin-bottom: 12px; border: 1px solid var(--purple); background: var(--surface); }
+  .final-toggle {
+    width: 100%; display: flex; align-items: center; gap: 12px;
+    background: rgba(188,140,255,0.07); border: none;
+    padding: 14px 18px; cursor: pointer; text-align: left; transition: background 0.15s;
+  }
+  .final-toggle:hover, .final-toggle.open { background: rgba(188,140,255,0.13); }
+  .final-toggle .caret { font-family: var(--mono); font-size: 11px; color: var(--purple); transition: transform 0.2s; }
+  .final-toggle.open .caret { transform: rotate(90deg); }
+  .final-toggle .ltitle { font-family: var(--mono); font-size: 14px; font-weight: 700; color: var(--purple); flex: 1; }
+  .final-body { display: none; background: var(--bg); border-top: 1px solid rgba(188,140,255,0.3); }
+  .final-body.open { display: block; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-title">LLD_NOTES.md — Lecture 3</div>
+  <div class="topbar-controls">
+    <button class="btn" onclick="collapseAll()">Collapse All</button>
+    <button class="btn primary" onclick="expandAll()">Expand All</button>
+  </div>
+</div>
+
+<div class="container">
+
+  <div class="page-header">
+    <h1>Observer Design Pattern</h1>
+    <div class="meta">Lecture 3 &nbsp;·&nbsp; <span>Behavioral Pattern</span> &nbsp;·&nbsp; Push Model &nbsp;·&nbsp; Pull Model</div>
+  </div>
+
+  <!-- ═══════════════════════════
+       LECTURE 3
+  ════════════════════════════ -->
+  <div class="lecture-block">
+    <button class="lecture-toggle" onclick="toggleLecture(this)">
+      <span class="caret">▶</span>
+      <span class="lnum">03</span>
+      <span class="ltitle">Observer Design Pattern</span>
+      <span class="lcount">28 topics</span>
+    </button>
+    <div class="lecture-body">
+
+      <!-- 1 -->
+      <div class="topic-block">
+        <button class="topic-toggle" onclick="toggleTopic(this)">
+          <span class="t-caret">▶</span><span class="t-num">1.</span>
+          <span class="t-title">What is Observer Pattern?</span>
+        </button>
+        <div class="topic-body">
+          <div class="tip-box"><span class="label">DEFINITION</span>Observer Pattern is a Behavioral Design Pattern. It automatically notifies dependent objects when the state of another object changes.</div>
+          <ul class="subtopic-list">
+            <li><strong>Observable / Publisher</strong> — Maintains state + list of observers. Notifies them on state change.</li>
+            <li><strong>Observer / Subscriber</strong> — Wants to know when publisher's state changes. Performs its own logic after notification.</li>
+          </ul>
+          <div class="code-block">Weather Station
+      |
+      | state changes
+      ↓
+  Notify all
+      |
+   ┌──┴──────────┐
+   ↓             ↓
+Current       Forecast
+Display       Display</div>
+        </div>
+      </div>
+
+      <!-- 2 -->
+      <div class="topic-block">
+        <button class="topic-toggle" onclick="toggleTopic(this)">
+          <span class="t-caret">▶</span><span class="t-num">2.</span>
+          <span class="t-title">Real-Life Examples</span>
+        </button>
+        <div class="topic-body">
+          <ul class="subtopic-list">
+            <li><strong>Weather App</strong> — Weather Station (publisher) notifies TV and Radio (observers) whenever weather changes.</li>
+            <li><strong>Social Media</strong> — Instagram profile (publisher) notifies all followers (observers) whenever a new post is made.</li>
+          </ul>
+          <div class="code-block">Publisher → notifies → Observers
+                          whenever state changes</div>
+        </div>
+      </div>
+
+      <!-- 3 -->
+      <div class="topic-block">
+        <button class="topic-toggle" onclick="toggleTopic(this)">
+          <span class="t-caret">▶</span><span class="t-num">3.</span>
+          <span class="t-title">Important Terminology</span>
+        </button>
+        <div class="topic-body">
+          <ul class="subtopic-list">
+            <li><strong>Observable / Publisher</strong> — Object whose state is being observed. e.g. WeatherStation</li>
+            <li><strong>Observer / Subscriber</strong> — Object that wants to receive updates. e.g. CurrentDisplay, ForecastDisplay</li>
+            <li><strong>State</strong> — Information maintained by the publisher. e.g. Temperature, Humidity</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- 4 -->
+      <div class="topic-block">
+        <button class="topic-toggle" onclick="toggleTopic(this)">
+          <span class="t-caret">▶</span><span class="t-num">4.</span>
+          <span class="t-title">Basic Structure</span>
+        </button>
+        <div class="topic-body">
+          <div class="code-block">          Observable
+                |
+      maintains observers
+                |
+      ┌─────────┴─────────┐
+      ↓                   ↓
+ Observer 1          Observer 2</div>
+          <ul class="subtopic-list">
+            <li><strong>Observable provides</strong> — <code>addObserver()</code> · <code>removeObserver()</code> · <code>notifyObservers()</code></li>
+            <li><strong>Observer provides</strong> — <code>update()</code></li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- 5 -->
+      <div class="topic-block">
+        <button class="topic-toggle" onclick="toggleTopic(this)">
+          <span class="t-caret">▶</span><span class="t-num">5.</span>
+          <span class="t-title">Why Do We Need Observer Pattern?</span>
+        </button>
+        <div class="topic-body">
+          <p class="content-text">Without Observer Pattern, the Weather Station directly depends on every display. As displays grow, the publisher gets increasingly tightly coupled.</p>
+          <div class="code-block">WeatherStation → CurrentDisplay
+WeatherStation → ForecastDisplay
+WeatherStation → FutureDisplay    <span class="cm">// tightly coupled — bad!</span></div>
+          <div class="warn-box"><span class="label">PROBLEM</span>As the number of observers grows, the publisher must be modified every time a new observer is added.</div>
+        </div>
+      </div>
+
+      <!-- 6 -->
+      <div class="topic-block">
+        <button class="topic-toggle" onclick="toggleTopic(this)">
+          <span class="t-caret">▶</span><span class="t-num">6.</span>
+          <span class="t-title">Observer Pattern Solution</span>
+        </button>
+        <div class="topic-body">
+          <div class="code-block">WeatherStation
+      ↓
+  Observer (interface)
+   /       \
+  ↓         ↓
+Current   Forecast
+Display   Display</div>
+          <div class="tip-box"><span class="label">KEY IDEA</span>Publisher only knows "I have a list of observers." It doesn't need to know the detailed logic of every observer.</div>
+        </div>
+      </div>
+
+      <!-- 7 -->
+      <div class="topic-block">
+        <button class="topic-toggle" onclick="toggleTopic(this)">
+          <span class="t-caret">▶</span><span class="t-num">7.</span>
+          <span class="t-title">Two Models of Observer Pattern</span>
+        </button>
+        <div class="topic-body">
+          <ul class="subtopic-list">
+            <li><strong>Push Model</strong> <span class="tag">Publisher sends data</span> — Publisher decides what data the observer receives and passes it in <code>update(data)</code></li>
+            <li><strong>Pull Model</strong> <span class="tag green">Observer fetches data</span> — Publisher only says "something changed". Observer pulls what it needs.</li>
+          </ul>
+          <div class="tip-box"><span class="label">KEY QUESTION</span>Who decides what data the Observer receives?</div>
+        </div>
+      </div>
+
+      <!-- 8 -->
+      <div class="topic-block">
+        <button class="topic-toggle" onclick="toggleTopic(this)">
+          <span class="t-caret">▶</span><span class="t-num">8.</span>
+          <span class="t-title">Push Model — Definition</span>
+        </button>
+        <div class="topic-body">
+          <p class="content-text">The Publisher sends the required data directly to the Observer.</p>
+          <div class="code-block">Publisher
+    |
+    | data
+    ↓
+Observer</div>
+          <div class="code-block"><span class="cm">// Publisher decides what to send:</span>
+observer.<span class="fn">update</span>(weatherData);</div>
+          <div class="tip-box"><span class="label">RECALL</span>PUSH = Publisher PUSHES data to Observer.</div>
+        </div>
+      </div>
+
+      <!-- 9 -->
+      <div class="topic-block">
+        <button class="topic-toggle" onclick="toggleTopic(this)">
+          <span class="t-caret">▶</span><span class="t-num">9.</span>
+          <span class="t-title">Push Model — Complete Java Code</span>
+        </button>
+        <div class="topic-body">
+          <div class="code-block"><span class="cm">// Data object sent by Publisher</span>
+<span class="kw">class</span> <span class="cl">WeatherData</span> {
+    <span class="kw">private double</span> temperature, humidity;
+
+    <span class="kw">public</span> <span class="fn">WeatherData</span>(<span class="kw">double</span> temperature, <span class="kw">double</span> humidity) {
+        <span class="kw">this</span>.temperature = temperature;
+        <span class="kw">this</span>.humidity = humidity;
+    }
+    <span class="kw">public double</span> <span class="fn">getTemperature</span>() { <span class="kw">return</span> temperature; }
+    <span class="kw">public double</span> <span class="fn">getHumidity</span>()    { <span class="kw">return</span> humidity; }
+}
+
+<span class="cm">// Observer interface</span>
+<span class="kw">interface</span> <span class="cl">WeatherObserver</span> {
+    <span class="kw">void</span> <span class="fn">update</span>(<span class="cl">WeatherData</span> data);  <span class="cm">// ← receives data directly</span>
+}
+
+<span class="cm">// Concrete Observers</span>
+<span class="kw">class</span> <span class="cl">CurrentDisplay</span> <span class="kw">implements</span> <span class="cl">WeatherObserver</span> {
+    <span class="an">@Override</span>
+    <span class="kw">public void</span> <span class="fn">update</span>(<span class="cl">WeatherData</span> data) {
+        System.out.<span class="fn">println</span>(<span class="st">"Current: "</span> + data.<span class="fn">getTemperature</span>() + <span class="st">"°C"</span>);
+    }
+}
+
+<span class="kw">class</span> <span class="cl">ForecastDisplay</span> <span class="kw">implements</span> <span class="cl">WeatherObserver</span> {
+    <span class="an">@Override</span>
+    <span class="kw">public void</span> <span class="fn">update</span>(<span class="cl">WeatherData</span> data) {
+        System.out.<span class="fn">println</span>(<span class="st">"Forecast: "</span> + data.<span class="fn">getTemperature</span>() + <span class="st">"°C"</span>);
+    }
+}
+
+<span class="cm">// Publisher</span>
+<span class="kw">class</span> <span class="cl">WeatherStation</span> {
+    <span class="kw">private</span> <span class="cl">List</span>&lt;<span class="cl">WeatherObserver</span>&gt; observers = <span class="kw">new</span> <span class="cl">ArrayList</span>&lt;&gt;();
+    <span class="kw">private</span> <span class="cl">WeatherData</span> weatherData;
+
+    <span class="kw">public void</span> <span class="fn">addObserver</span>(<span class="cl">WeatherObserver</span> o)    { observers.<span class="fn">add</span>(o); }
+    <span class="kw">public void</span> <span class="fn">removeObserver</span>(<span class="cl">WeatherObserver</span> o) { observers.<span class="fn">remove</span>(o); }
+
+    <span class="kw">private void</span> <span class="fn">notifyObservers</span>() {
+        <span class="kw">for</span> (<span class="cl">WeatherObserver</span> o : observers)
+            o.<span class="fn">update</span>(weatherData);   <span class="cm">// ← push data</span>
+    }
+
+    <span class="kw">public void</span> <span class="fn">setWeatherReading</span>(<span class="kw">double</span> temp, <span class="kw">double</span> humidity) {
+        weatherData = <span class="kw">new</span> <span class="cl">WeatherData</span>(temp, humidity);
+        <span class="fn">notifyObservers</span>();
+    }
+}</div>
+        </div>
+      </div>
+
+      <!-- 10 -->
+      <div class="topic-block">
+        <button class="topic-toggle" onclick="toggleTopic(this)">
+          <span class="t-caret">▶</span><span class="t-num">10.</span>
+          <span class="t-title">Push Model — How It Works (Step by Step)</span>
+        </button>
+        <div class="topic-body">
+          <ul class="subtopic-list">
+            <li><strong>Step 1 — Create Publisher</strong> — <code>WeatherStation station = new WeatherStation();</code> → observers list starts empty</li>
+            <li><strong>Step 2 — Create Observers</strong> — <code>new CurrentDisplay()</code> and <code>new ForecastDisplay()</code></li>
+            <li><strong>Step 3 — Subscribe</strong> — <code>station.addObserver(currentDisplay)</code> → station maintains the observer list</li>
+            <li><strong>Step 4 — State Changes</strong> — <code>station.setWeatherReading(30, 70)</code> → creates WeatherData, calls <code>notifyObservers()</code></li>
+            <li><strong>Step 5 — Notification</strong> — loops through observers, calls <code>observer.update(weatherData)</code> on each</li>
+          </ul>
+          <div class="code-block">WeatherStation
+      |
+      ↓
+notifyObservers()
+      |
+      ├──→ CurrentDisplay.<span class="fn">update</span>(data)
+      └──→ ForecastDisplay.<span class="fn">update</span>(data)</div>
+        </div>
+      </div>
+
+      <!-- 11 -->
+      <div class="topic-block">
+        <button class="topic-toggle" onclick="toggleTopic(this)">
+          <span class="t-caret">▶</span><span class="t-num">11.</span>
+          <span class="t-title">Push Model — Main (Usage)</span>
+        </button>
+        <div class="topic-body">
+          <div class="code-block"><span class="kw">public class</span> <span class="cl">Main</span> {
+    <span class="kw">public static void</span> <span class="fn">main</span>(<span class="cl">String</span>[] args) {
+
+        <span class="cl">WeatherStation</span> station = <span class="kw">new</span> <span class="cl">WeatherStation</span>();
+
+        <span class="cl">CurrentDisplay</span>  currentDisplay  = <span class="kw">new</span> <span class="cl">CurrentDisplay</span>();
+        <span class="cl">ForecastDisplay</span> forecastDisplay = <span class="kw">new</span> <span class="cl">ForecastDisplay</span>();
+
+        station.<span class="fn">addObserver</span>(currentDisplay);
+        station.<span class="fn">addObserver</span>(forecastDisplay);
+
+        station.<span class="fn">setWeatherReading</span>(30, 70);  <span class="cm">// both notified</span>
+
+        station.<span class="fn">removeObserver</span>(forecastDisplay);
+
+        station.<span class="fn">setWeatherReading</span>(32, 65);  <span class="cm">// only CurrentDisplay notified</span>
+    }
+}</div>
+        </div>
+      </div>
+
+      <!-- 12 -->
+      <div class="topic-block">
+        <button class="topic-toggle" onclick="toggleTopic(this)">
+          <span class="t-caret">▶</span><span class="t-num">12.</span>
+          <span class="t-title">Why Is This Called Push?</span>
+        </button>
+        <div class="topic-body">
+          <p class="content-text">The Publisher is <strong>pushing the data</strong> to every observer. The observer doesn't need to ask for it — it arrives automatically inside <code>update(weatherData)</code>.</p>
+          <div class="code-block">WeatherStation
+       |
+       | WeatherData    <span class="cm">← pushed by publisher</span>
+       ↓
+CurrentDisplay</div>
+        </div>
+      </div>
+
+      <!-- 13 -->
+      <div class="topic-block">
+        <button class="topic-toggle" onclick="toggleTopic(this)">
+          <span class="t-caret">▶</span><span class="t-num">13.</span>
+          <span class="t-title">Removing an Observer</span>
+        </button>
+        <div class="topic-body">
+          <div class="code-block">station.<span class="fn">removeObserver</span>(forecastDisplay);
+
+<span class="cm">// Now only CurrentDisplay is in the list</span>
+station.<span class="fn">setWeatherReading</span>(32, 65);
+<span class="cm">// → only CurrentDisplay.update() is called</span></div>
+          <div class="tip-box"><span class="label">BENEFIT</span>Observers can unsubscribe at any time. Publisher doesn't need to be modified.</div>
+        </div>
+      </div>
+
+      <!-- 14 -->
+      <div class="topic-block">
+        <button class="topic-toggle" onclick="toggleTopic(this)">
+          <span class="t-caret">▶</span><span class="t-num">14.</span>
+          <span class="t-title">Pull Model — Definition</span>
+        </button>
+        <div class="topic-body">
+          <p class="content-text">The Publisher only tells the Observer that <strong>something changed</strong>. It does NOT send the actual data. The observer fetches whatever it needs.</p>
+          <div class="code-block">Publisher
+    |
+    | "Something changed"
+    ↓
+Observer
+    |
+    | fetch data
+    ↓
+Publisher</div>
+          <div class="code-block"><span class="cm">// Push — data sent in parameter:</span>
+observer.<span class="fn">update</span>(weatherData);
+
+<span class="cm">// Pull — no data, just a ping:</span>
+observer.<span class="fn">update</span>();</div>
+          <div class="tip-box"><span class="label">RECALL</span>PULL = Observer PULLS data from Publisher.</div>
+        </div>
+      </div>
+
+      <!-- 15 -->
+      <div class="topic-block">
+        <button class="topic-toggle" onclick="toggleTopic(this)">
+          <span class="t-caret">▶</span><span class="t-num">15.</span>
+          <span class="t-title">Pull Model — Complete Java Code</span>
+        </button>
+        <div class="topic-body">
+          <div class="code-block"><span class="cm">// Observable interface</span>
+<span class="kw">interface</span> <span class="cl">WeatherObservable</span> {
+    <span class="kw">void</span> <span class="fn">addObserver</span>(<span class="cl">WeatherObserver</span> o);
+    <span class="kw">void</span> <span class="fn">removeObserver</span>(<span class="cl">WeatherObserver</span> o);
+    <span class="kw">void</span> <span class="fn">notifyObservers</span>();
+    <span class="kw">double</span> <span class="fn">getTemperature</span>();
+    <span class="kw">double</span> <span class="fn">getHumidity</span>();
+}
+
+<span class="cm">// Observer interface</span>
+<span class="kw">interface</span> <span class="cl">WeatherObserver</span> {
+    <span class="kw">void</span> <span class="fn">update</span>();   <span class="cm">// ← no parameters</span>
+}
+
+<span class="cm">// Publisher</span>
+<span class="kw">class</span> <span class="cl">WeatherStation</span> <span class="kw">implements</span> <span class="cl">WeatherObservable</span> {
+    <span class="kw">private</span> <span class="cl">List</span>&lt;<span class="cl">WeatherObserver</span>&gt; observers = <span class="kw">new</span> <span class="cl">ArrayList</span>&lt;&gt;();
+    <span class="kw">private double</span> temperature, humidity;
+
+    <span class="an">@Override</span> <span class="kw">public void</span> <span class="fn">addObserver</span>(<span class="cl">WeatherObserver</span> o)    { observers.<span class="fn">add</span>(o); }
+    <span class="an">@Override</span> <span class="kw">public void</span> <span class="fn">removeObserver</span>(<span class="cl">WeatherObserver</span> o) { observers.<span class="fn">remove</span>(o); }
+    <span class="an">@Override</span> <span class="kw">public double</span> <span class="fn">getTemperature</span>() { <span class="kw">return</span> temperature; }
+    <span class="an">@Override</span> <span class="kw">public double</span> <span class="fn">getHumidity</span>()    { <span class="kw">return</span> humidity; }
+
+    <span class="an">@Override</span>
+    <span class="kw">public void</span> <span class="fn">notifyObservers</span>() {
+        <span class="kw">for</span> (<span class="cl">WeatherObserver</span> o : observers)
+            o.<span class="fn">update</span>();   <span class="cm">// ← just a ping, no data</span>
+    }
+
+    <span class="kw">public void</span> <span class="fn">setWeatherReading</span>(<span class="kw">double</span> temp, <span class="kw">double</span> humidity) {
+        <span class="kw">this</span>.temperature = temp;
+        <span class="kw">this</span>.humidity    = humidity;
+        <span class="fn">notifyObservers</span>();
+    }
+}
+
+<span class="cm">// Observer — holds reference to publisher and fetches what it needs</span>
+<span class="kw">class</span> <span class="cl">CurrentDisplay</span> <span class="kw">implements</span> <span class="cl">WeatherObserver</span> {
+    <span class="kw">private</span> <span class="cl">WeatherObservable</span> weatherStation;   <span class="cm">// HAS-A reference</span>
+
+    <span class="kw">public</span> <span class="fn">CurrentDisplay</span>(<span class="cl">WeatherObservable</span> ws) {
+        <span class="kw">this</span>.weatherStation = ws;
+        ws.<span class="fn">addObserver</span>(<span class="kw">this</span>);
+    }
+
+    <span class="an">@Override</span>
+    <span class="kw">public void</span> <span class="fn">update</span>() {
+        <span class="kw">double</span> temp     = weatherStation.<span class="fn">getTemperature</span>();
+        <span class="kw">double</span> humidity = weatherStation.<span class="fn">getHumidity</span>();
+        System.out.<span class="fn">println</span>(<span class="st">"Current: "</span> + temp + <span class="st">"°C, Humidity: "</span> + humidity + <span class="st">"%"</span>);
+    }
+}
+
+<span class="kw">class</span> <span class="cl">ForecastDisplay</span> <span class="kw">implements</span> <span class="cl">WeatherObserver</span> {
+    <span class="kw">private</span> <span class="cl">WeatherObservable</span> weatherStation;
+
+    <span class="kw">public</span> <span class="fn">ForecastDisplay</span>(<span class="cl">WeatherObservable</span> ws) {
+        <span class="kw">this</span>.weatherStation = ws;
+        ws.<span class="fn">addObserver</span>(<span class="kw">this</span>);
+    }
+
+    <span class="an">@Override</span>
+    <span class="kw">public void</span> <span class="fn">update</span>() {
+        <span class="cm">// Only pulls what IT needs — just temperature</span>
+        System.out.<span class="fn">println</span>(<span class="st">"Forecast: "</span> + weatherStation.<span class="fn">getTemperature</span>() + <span class="st">"°C"</span>);
+    }
+}</div>
+        </div>
+      </div>
+
+      <!-- 16 -->
+      <div class="topic-block">
+        <button class="topic-toggle" onclick="toggleTopic(this)">
+          <span class="t-caret">▶</span><span class="t-num">16.</span>
+          <span class="t-title">Pull Model — How It Works (Step by Step)</span>
+        </button>
+        <div class="topic-body">
+          <ul class="subtopic-list">
+            <li><strong>Step 1 — Observer stores publisher reference</strong> — <code>private WeatherObservable weatherStation;</code> → observer HAS-A publisher</li>
+            <li><strong>Step 2 — Observer self-registers</strong> — Inside constructor: <code>ws.addObserver(this)</code></li>
+            <li><strong>Step 3 — State changes</strong> — <code>station.setWeatherReading(30, 70)</code> → publisher updates its fields, calls <code>notifyObservers()</code></li>
+            <li><strong>Step 4 — Publisher pings</strong> — <code>observer.update()</code> — no data sent</li>
+            <li><strong>Step 5 — Observer pulls</strong> — calls <code>weatherStation.getTemperature()</code> and <code>getHumidity()</code> itself</li>
+          </ul>
+          <div class="code-block">WeatherStation
+      ↑
+      |  getTemperature()   <span class="cm">← observer pulls what it needs</span>
+      |  getHumidity()
+CurrentDisplay</div>
+        </div>
+      </div>
+
+      <!-- 17 -->
+      <div class="topic-block">
+        <button class="topic-toggle" onclick="toggleTopic(this)">
+          <span class="t-caret">▶</span><span class="t-num">17.</span>
+          <span class="t-title">Pull Model — Main (Usage)</span>
+        </button>
+        <div class="topic-body">
+          <div class="code-block"><span class="kw">public class</span> <span class="cl">Main</span> {
+    <span class="kw">public static void</span> <span class="fn">main</span>(<span class="cl">String</span>[] args) {
+
+        <span class="cl">WeatherStation</span> station = <span class="kw">new</span> <span class="cl">WeatherStation</span>();
+
+        <span class="cm">// Observers register themselves in their constructors</span>
+        <span class="cl">CurrentDisplay</span>  current  = <span class="kw">new</span> <span class="cl">CurrentDisplay</span>(station);
+        <span class="cl">ForecastDisplay</span> forecast = <span class="kw">new</span> <span class="cl">ForecastDisplay</span>(station);
+
+        station.<span class="fn">setWeatherReading</span>(30, 70);
+        station.<span class="fn">setWeatherReading</span>(32, 65);
+    }
+}</div>
+        </div>
+      </div>
+
+      <!-- 18 -->
+      <div class="topic-block">
+        <button class="topic-toggle" onclick="toggleTopic(this)">
+          <span class="t-caret">▶</span><span class="t-num">18.</span>
+          <span class="t-title">Publisher Only Says "Something Changed"</span>
+        </button>
+        <div class="topic-body">
+          <div class="code-block"><span class="cm">// Inside notifyObservers():</span>
+<span class="kw">for</span> (<span class="cl">WeatherObserver</span> o : observers)
+    o.<span class="fn">update</span>();       <span class="cm">// ← NO data here</span>
+
+<span class="cm">// NOT: o.update(weatherData);</span></div>
+          <p class="content-text">The publisher simply says: <strong>"Something changed. You can check if you need anything."</strong> It doesn't decide what the observer should read.</p>
+        </div>
+      </div>
+
+      <!-- 19 -->
+      <div class="topic-block">
+        <button class="topic-toggle" onclick="toggleTopic(this)">
+          <span class="t-caret">▶</span><span class="t-num">19.</span>
+          <span class="t-title">Observer Pulls the Data</span>
+        </button>
+        <div class="topic-body">
+          <div class="code-block"><span class="cm">// Inside CurrentDisplay.update():</span>
+<span class="kw">double</span> temperature = weatherStation.<span class="fn">getTemperature</span>();
+<span class="kw">double</span> humidity    = weatherStation.<span class="fn">getHumidity</span>();
+
+<span class="cm">// Inside ForecastDisplay.update():</span>
+<span class="kw">double</span> temperature = weatherStation.<span class="fn">getTemperature</span>();
+<span class="cm">// ForecastDisplay only needs temperature — pulls only that</span></div>
+          <p class="content-text">Each observer fetches exactly what it needs. CurrentDisplay pulls both. ForecastDisplay pulls only temperature. Observer is in control.</p>
+        </div>
+      </div>
+
+      <!-- 20 -->
+      <div class="topic-block">
+        <button class="topic-toggle" onclick="toggleTopic(this)">
+          <span class="t-caret">▶</span><span class="t-num">20.</span>
+          <span class="t-title">Push vs Pull — Comparison Table</span>
+        </button>
+        <div class="topic-body">
+          <table class="mini-table">
+            <tr><th></th><th>Push</th><th>Pull</th></tr>
+            <tr><td>Publisher sends data?</td><td>Yes ✓</td><td>No ✗</td></tr>
+            <tr><td><code>update()</code> signature</td><td><code>update(data)</code></td><td><code>update()</code></td></tr>
+            <tr><td>Observer has publisher reference?</td><td>Not required</td><td>Yes — required</td></tr>
+            <tr><td>Who decides required data?</td><td>Publisher</td><td>Observer</td></tr>
+            <tr><td>Observer control</td><td>Less</td><td>More</td></tr>
+          </table>
+          <div class="code-block">Push → Publisher pushes data → Observer
+Pull → Publisher pings → Observer pulls data from Publisher</div>
+        </div>
+      </div>
+
+      <!-- 21 -->
+      <div class="topic-block">
+        <button class="topic-toggle" onclick="toggleTopic(this)">
+          <span class="t-caret">▶</span><span class="t-num">21.</span>
+          <span class="t-title">When to Use Push vs Pull?</span>
+        </button>
+        <div class="topic-body">
+          <ul class="subtopic-list">
+            <li><strong>Use Push when</strong> — Publisher should control exactly what data the observer receives. All observers need the same data fields.</li>
+            <li><strong>Use Pull when</strong> — Different observers need different subsets of data. Observer should decide what information it needs.</li>
+          </ul>
+          <div class="code-block"><span class="cm">// Pull is better when observers have different needs:</span>
+CurrentDisplay   → needs temperature + humidity
+ForecastDisplay  → needs only temperature
+StatisticsDisplay→ needs temperature + humidity + history</div>
+        </div>
+      </div>
+
+      <!-- 22 -->
+      <div class="topic-block">
+        <button class="topic-toggle" onclick="toggleTopic(this)">
+          <span class="t-caret">▶</span><span class="t-num">22.</span>
+          <span class="t-title">Observer Pattern + HAS-A (Connection to Lecture 1)</span>
+        </button>
+        <div class="topic-body">
+          <p class="content-text">The Pull Model connects directly to the HAS-A relationship from Lecture 1.</p>
+          <div class="code-block"><span class="kw">private</span> <span class="cl">WeatherObservable</span> weatherStation;  <span class="cm">// HAS-A reference</span>
+
+CurrentDisplay
+      ↓
+  HAS-A
+      ↓
+WeatherObservable</div>
+          <div class="tip-box"><span class="label">CONNECTION</span>Observer HAS-A reference to Observable (Aggregation — both can exist independently).</div>
+        </div>
+      </div>
+
+      <!-- 23 -->
+      <div class="topic-block">
+        <button class="topic-toggle" onclick="toggleTopic(this)">
+          <span class="t-caret">▶</span><span class="t-num">23.</span>
+          <span class="t-title">Key Benefits of Observer Pattern</span>
+        </button>
+        <div class="topic-body">
+          <ul class="subtopic-list">
+            <li><strong>Loose Coupling</strong> — Publisher only knows the <code>WeatherObserver</code> interface, not the concrete implementations</li>
+            <li><strong>Easy to Add Observers</strong> — Add CurrentDisplay, ForecastDisplay, StatisticsDisplay, MobileDisplay without changing the notification mechanism</li>
+            <li><strong>Easy to Remove Observers</strong> — <code>removeObserver(observer)</code> unsubscribes without affecting others</li>
+            <li><strong>Automatic Notification</strong> — No observer needs to continuously poll/check for changes. State change → <code>notifyObservers()</code> → all observers react</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- 24 -->
+      <div class="topic-block">
+        <button class="topic-toggle" onclick="toggleTopic(this)">
+          <span class="t-caret">▶</span><span class="t-num">24.</span>
+          <span class="t-title">Push Mental Model</span>
+        </button>
+        <div class="topic-body">
+          <div class="code-block">Publisher
+    |
+    | "Here is the data"
+    ↓
+Observer
+
+update(weatherData);    <span class="cm">← data in parameter</span></div>
+          <div class="tip-box"><span class="label">REMEMBER</span>Publisher PUSHES data to Observer.</div>
+        </div>
+      </div>
+
+      <!-- 25 -->
+      <div class="topic-block">
+        <button class="topic-toggle" onclick="toggleTopic(this)">
+          <span class="t-caret">▶</span><span class="t-num">25.</span>
+          <span class="t-title">Pull Mental Model</span>
+        </button>
+        <div class="topic-body">
+          <div class="code-block">Publisher
+    |
+    | "Something changed"
+    ↓
+Observer
+    |
+    | "Let me fetch what I need"
+    ↓
+Publisher
+
+update();    <span class="cm">← no data, observer fetches itself</span></div>
+          <div class="tip-box"><span class="label">REMEMBER</span>Observer PULLS data from Publisher.</div>
+        </div>
+      </div>
+
+      <!-- 26 -->
+      <div class="topic-block">
+        <button class="topic-toggle" onclick="toggleTopic(this)">
+          <span class="t-caret">▶</span><span class="t-num">26.</span>
+          <span class="t-title">Complete Mental Model</span>
+        </button>
+        <div class="topic-body">
+          <div class="code-block">         Observable / Publisher
+                  |
+          maintains list of
+                  |
+       ┌──────────┴──────────┐
+       ↓                     ↓
+   Observer 1            Observer 2
+
+Publisher methods:  addObserver() · removeObserver() · notifyObservers()
+Observer methods:   update()</div>
+          <div class="code-block">State Change
+     ↓
+notifyObservers()
+     ↓
+All Observers react</div>
+        </div>
+      </div>
+
+      <!-- 27 -->
+      <div class="topic-block">
+        <button class="topic-toggle" onclick="toggleTopic(this)">
+          <span class="t-caret">▶</span><span class="t-num">27.</span>
+          <span class="t-title">Observer Pattern — One-Line Memory Trick</span>
+        </button>
+        <div class="topic-body">
+          <div class="code-block">State changes
+     ↓
+Publisher
+     ↓
+Notify all observers
+     ↓
+Observers react</div>
+          <div class="tip-box"><span class="label">RECALL</span>One-to-many relationship. Publisher changes → all registered observers automatically notified.</div>
+        </div>
+      </div>
+
+      <!-- 28 -->
+      <div class="topic-block">
+        <button class="topic-toggle" onclick="toggleTopic(this)">
+          <span class="t-caret">▶</span><span class="t-num">28.</span>
+          <span class="t-title">Interview Recall</span>
+        </button>
+        <div class="topic-body">
+          <div class="tip-box"><span class="label">INTERVIEW</span>Observer Pattern establishes a one-to-many relationship between a publisher and its subscribers. Whenever the publisher's state changes, it automatically notifies all registered observers. The notification can follow either a Push model (publisher sends the data) or a Pull model (observer fetches the required data from the publisher).</div>
+          <ul class="subtopic-list">
+            <li><strong>Category</strong> — Behavioral Design Pattern</li>
+            <li><strong>Publisher</strong> — <code>addObserver()</code> · <code>removeObserver()</code> · <code>notifyObservers()</code></li>
+            <li><strong>Observer</strong> — <code>update()</code> or <code>update(data)</code></li>
+            <li><strong>Push</strong> — Publisher decides what to send · <code>update(data)</code></li>
+            <li><strong>Pull</strong> — Observer decides what to fetch · <code>update()</code> + HAS-A reference to publisher</li>
+          </ul>
+        </div>
+      </div>
+
+    </div><!-- /lecture-body -->
+  </div><!-- /lecture-block -->
+
+  <!-- FINAL REVISION -->
+  <div class="section-divider"></div>
+
+  <div class="final-block">
+    <button class="final-toggle" onclick="toggleFinal(this)">
+      <span class="caret">▶</span>
+      <span class="ltitle">⚡ Final Combined Revision</span>
+    </button>
+    <div class="final-body">
+
+      <div class="topic-block">
+        <button class="topic-toggle" onclick="toggleTopic(this)">
+          <span class="t-caret">▶</span><span class="t-num">1.</span>
+          <span class="t-title">Observer Pattern Mental Model</span>
+        </button>
+        <div class="topic-body">
+          <div class="code-block">Observer Pattern
+│
+├── Category: Behavioral
+│
+├── Publisher (Observable)
+│   ├── addObserver()
+│   ├── removeObserver()
+│   └── notifyObservers()
+│
+├── Observer
+│   └── update()
+│
+└── Two Models
+    ├── Push → update(data)    publisher sends data
+    └── Pull → update()        observer fetches data</div>
+        </div>
+      </div>
+
+      <div class="topic-block">
+        <button class="topic-toggle" onclick="toggleTopic(this)">
+          <span class="t-caret">▶</span><span class="t-num">2.</span>
+          <span class="t-title">Push vs Pull — Quick Reference</span>
+        </button>
+        <div class="topic-body">
+          <table class="mini-table">
+            <tr><th>Aspect</th><th>Push</th><th>Pull</th></tr>
+            <tr><td>update() signature</td><td><code>update(data)</code></td><td><code>update()</code></td></tr>
+            <tr><td>Data sender</td><td>Publisher</td><td>Observer</td></tr>
+            <tr><td>Observer needs publisher ref?</td><td>No</td><td>Yes</td></tr>
+            <tr><td>Best when</td><td>All observers need same data</td><td>Observers need different data</td></tr>
+          </table>
+        </div>
+      </div>
+
+      <div class="topic-block" style="border-bottom:none">
+        <button class="topic-toggle" onclick="toggleTopic(this)">
+          <span class="t-caret">▶</span><span class="t-num">3.</span>
+          <span class="t-title">One-Line Examples</span>
+        </button>
+        <div class="topic-body">
+          <div class="code-block">Observer Pattern → WeatherStation notifies CurrentDisplay + ForecastDisplay
+Push            → station.notifyObservers() calls update(weatherData)
+Pull            → station.notifyObservers() calls update(), observer fetches itself
+addObserver()   → subscribe
+removeObserver()→ unsubscribe
+HAS-A (Pull)    → CurrentDisplay HAS-A WeatherObservable reference</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div><!-- /container -->
+
+<script>
+  function toggleLecture(btn) {
+    const body = btn.nextElementSibling;
+    const isOpen = btn.classList.contains('open');
+    btn.classList.toggle('open', !isOpen);
+    body.classList.toggle('open', !isOpen);
+  }
+  function toggleTopic(btn) {
+    const body = btn.nextElementSibling;
+    const isOpen = btn.classList.contains('open');
+    btn.classList.toggle('open', !isOpen);
+    body.classList.toggle('open', !isOpen);
+  }
+  function toggleFinal(btn) {
+    const body = btn.nextElementSibling;
+    const isOpen = btn.classList.contains('open');
+    btn.classList.toggle('open', !isOpen);
+    body.classList.toggle('open', !isOpen);
+  }
+  function expandAll() {
+    document.querySelectorAll('.lecture-toggle, .topic-toggle, .final-toggle').forEach(btn => {
+      btn.classList.add('open');
+      btn.nextElementSibling.classList.add('open');
+    });
+  }
+  function collapseAll() {
+    document.querySelectorAll('.lecture-toggle, .topic-toggle, .final-toggle').forEach(btn => {
+      btn.classList.remove('open');
+      btn.nextElementSibling.classList.remove('open');
+    });
+  }
+</script>
+
+</body>
+</html>
