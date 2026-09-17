@@ -1,0 +1,1198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>LLD Notes — Parking Lot</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg:#0D1117; --surface:#161B22; --surface2:#1C2330; --border:#30363D;
+    --accent:#58A6FF; --green:#3FB950; --yellow:#E3B341; --purple:#BC8CFF;
+    --muted:#8B949E; --text:#C9D1D9; --heading:#F0F6FC;
+    --mono:'JetBrains Mono',monospace; --sans:'Inter',sans-serif;
+  }
+  body { background:var(--bg); color:var(--text); font-family:var(--sans); font-size:14px; line-height:1.6; min-height:100vh; }
+
+  /* TOP BAR */
+  .topbar { position:sticky; top:0; z-index:100; background:var(--surface); border-bottom:1px solid var(--border); padding:14px 28px; display:flex; align-items:center; justify-content:space-between; gap:16px; }
+  .topbar-title { font-family:var(--mono); font-size:13px; font-weight:700; color:var(--accent); letter-spacing:.04em; display:flex; align-items:center; gap:10px; }
+  .topbar-title::before { content:'▶'; font-size:10px; color:var(--green); }
+  .topbar-controls { display:flex; gap:8px; }
+  .btn { font-family:var(--mono); font-size:11px; font-weight:600; padding:6px 14px; border:1px solid var(--border); background:transparent; color:var(--muted); cursor:pointer; transition:all .15s; letter-spacing:.03em; }
+  .btn:hover { border-color:var(--accent); color:var(--accent); background:rgba(88,166,255,.07); }
+  .btn.primary { border-color:var(--accent); color:var(--accent); background:rgba(88,166,255,.1); }
+  .btn.primary:hover { background:rgba(88,166,255,.2); }
+
+  /* LAYOUT */
+  .container { max-width:900px; margin:0 auto; padding:32px 24px 80px; }
+  .page-header { margin-bottom:36px; padding-bottom:24px; border-bottom:1px solid var(--border); }
+  .page-header h1 { font-family:var(--mono); font-size:22px; font-weight:700; color:var(--heading); margin-bottom:6px; }
+  .page-header .meta { font-family:var(--mono); font-size:12px; color:var(--muted); }
+  .page-header .meta span { color:var(--green); }
+
+  /* LECTURE BLOCK */
+  .lecture-block { margin-bottom:12px; }
+  .lecture-toggle { width:100%; display:flex; align-items:center; gap:12px; background:var(--surface); border:1px solid var(--border); padding:14px 18px; cursor:pointer; text-align:left; transition:border-color .15s,background .15s; }
+  .lecture-toggle:hover { border-color:var(--accent); background:var(--surface2); }
+  .lecture-toggle.open { border-color:var(--accent); border-bottom-color:var(--border); background:var(--surface2); }
+  .lecture-toggle .caret { font-family:var(--mono); font-size:11px; color:var(--accent); transition:transform .2s; flex-shrink:0; width:16px; }
+  .lecture-toggle.open .caret { transform:rotate(90deg); }
+  .lecture-toggle .lnum { font-family:var(--mono); font-size:11px; color:var(--muted); flex-shrink:0; }
+  .lecture-toggle .ltitle { font-family:var(--mono); font-size:14px; font-weight:700; color:var(--heading); flex:1; }
+  .lecture-toggle .lcount { font-family:var(--mono); font-size:11px; color:var(--muted); flex-shrink:0; }
+  .lecture-body { border:1px solid var(--accent); border-top:none; background:var(--bg); display:none; }
+  .lecture-body.open { display:block; }
+
+  /* TOPIC — Level 1 */
+  .topic-block { border-bottom:1px solid var(--border); }
+  .topic-block:last-child { border-bottom:none; }
+  .topic-toggle { width:100%; display:flex; align-items:flex-start; gap:12px; padding:12px 18px 12px 36px; cursor:pointer; text-align:left; background:transparent; border:none; transition:background .12s; }
+  .topic-toggle:hover { background:rgba(88,166,255,.04); }
+  .topic-toggle.open { background:rgba(88,166,255,.06); }
+  .topic-toggle .t-caret { font-family:var(--mono); font-size:10px; color:var(--muted); transition:transform .18s; margin-top:2px; flex-shrink:0; }
+  .topic-toggle.open .t-caret { transform:rotate(90deg); color:var(--accent); }
+  .topic-toggle .t-num { font-family:var(--mono); font-size:11px; color:var(--muted); flex-shrink:0; margin-top:1px; min-width:32px; }
+  .topic-toggle .t-title { font-family:var(--sans); font-size:13px; font-weight:600; color:var(--text); flex:1; line-height:1.5; }
+  .topic-toggle.open .t-title { color:var(--heading); }
+  .topic-body { display:none; padding:0 18px 16px 76px; }
+  .topic-body.open { display:block; }
+
+  /* SUBTOPIC — Level 2 */
+  .sub-block { border:1px solid var(--border); margin:6px 0; }
+  .sub-toggle { width:100%; display:flex; align-items:flex-start; gap:10px; padding:9px 14px; cursor:pointer; text-align:left; background:var(--surface); border:none; transition:background .12s; }
+  .sub-toggle:hover { background:rgba(88,166,255,.05); }
+  .sub-toggle.open { background:rgba(88,166,255,.08); border-bottom:1px solid var(--border); }
+  .sub-toggle .s-caret { font-family:var(--mono); font-size:9px; color:var(--muted); transition:transform .18s; margin-top:2px; flex-shrink:0; }
+  .sub-toggle.open .s-caret { transform:rotate(90deg); color:var(--green); }
+  .sub-toggle .s-title { font-family:var(--mono); font-size:12px; font-weight:600; color:var(--muted); flex:1; line-height:1.5; }
+  .sub-toggle.open .s-title { color:var(--green); }
+  .sub-body { display:none; padding:12px 14px; background:var(--bg); }
+  .sub-body.open { display:block; }
+
+  /* CONTENT */
+  .content-text { font-size:13px; color:var(--text); line-height:1.7; margin-bottom:10px; }
+  .code-block { background:var(--surface); border:1px solid var(--border); border-left:3px solid var(--accent); padding:12px 14px; font-family:var(--mono); font-size:12px; color:var(--text); white-space:pre; overflow-x:auto; margin:8px 0; line-height:1.6; }
+  .code-block .kw  { color:#FF7B72; }
+  .code-block .cl  { color:#79C0FF; }
+  .code-block .fn  { color:#D2A8FF; }
+  .code-block .cm  { color:#8B949E; font-style:italic; }
+  .code-block .st  { color:#A5D6FF; }
+  .code-block .an  { color:#E3B341; }
+  .tip-box  { background:rgba(63,185,80,.07);  border:1px solid rgba(63,185,80,.25);  border-left:3px solid var(--green);  padding:10px 14px; font-size:12px; color:var(--text); margin:8px 0; font-family:var(--mono); }
+  .tip-box  .label { color:var(--green);  font-weight:700; margin-right:6px; }
+  .warn-box { background:rgba(227,179,65,.07); border:1px solid rgba(227,179,65,.25); border-left:3px solid var(--yellow); padding:10px 14px; font-size:12px; color:var(--text); margin:8px 0; font-family:var(--mono); }
+  .warn-box .label { color:var(--yellow); font-weight:700; margin-right:6px; }
+  .info-box { background:rgba(88,166,255,.07); border:1px solid rgba(88,166,255,.25); border-left:3px solid var(--accent);  padding:10px 14px; font-size:12px; color:var(--text); margin:8px 0; font-family:var(--mono); }
+  .info-box .label { color:var(--accent);  font-weight:700; margin-right:6px; }
+  table.mini-table { width:100%; border-collapse:collapse; font-size:12px; margin:8px 0; }
+  table.mini-table th { font-family:var(--mono); font-size:11px; font-weight:700; color:var(--accent); background:var(--surface); padding:7px 10px; text-align:left; border:1px solid var(--border); }
+  table.mini-table td { padding:7px 10px; border:1px solid var(--border); color:var(--text); vertical-align:top; }
+  table.mini-table tr:hover td { background:rgba(88,166,255,.04); }
+  .section-divider { height:1px; background:var(--border); margin:28px 0; }
+
+  /* FINAL BLOCK */
+  .final-block { margin-bottom:12px; border:1px solid var(--purple); background:var(--surface); }
+  .final-toggle { width:100%; display:flex; align-items:center; gap:12px; background:rgba(188,140,255,.07); border:none; padding:14px 18px; cursor:pointer; text-align:left; transition:background .15s; }
+  .final-toggle:hover,.final-toggle.open { background:rgba(188,140,255,.13); }
+  .final-toggle .caret { font-family:var(--mono); font-size:11px; color:var(--purple); transition:transform .2s; }
+  .final-toggle.open .caret { transform:rotate(90deg); }
+  .final-toggle .ltitle { font-family:var(--mono); font-size:14px; font-weight:700; color:var(--purple); flex:1; }
+  .final-body { display:none; background:var(--bg); border-top:1px solid rgba(188,140,255,.3); }
+  .final-body.open { display:block; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-title">LLD_NOTES.md — Parking Lot</div>
+  <div class="topbar-controls">
+    <button class="btn" onclick="collapseAll()">Collapse All</button>
+    <button class="btn primary" onclick="expandAll()">Expand All</button>
+  </div>
+</div>
+
+<div class="container">
+  <div class="page-header">
+    <h1>Parking Lot — LLD</h1>
+    <div class="meta">Case Study &nbsp;·&nbsp; <span>Strategy Pattern</span> &nbsp;·&nbsp; Delegation &nbsp;·&nbsp; Concurrency &nbsp;·&nbsp; HAS-A / IS-A</div>
+  </div>
+
+  <div class="lecture-block">
+    <button class="lecture-toggle" onclick="toggleEl(this)">
+      <span class="caret">▶</span>
+      <span class="lnum">05</span>
+      <span class="ltitle">Parking Lot — Low Level Design</span>
+      <span class="lcount">13 topics</span>
+    </button>
+    <div class="lecture-body">
+
+      <!-- ══════════════════════════
+           TOPIC 1 — Process & Flow
+      ══════════════════════════ -->
+      <div class="topic-block">
+        <button class="topic-toggle" onclick="toggleEl(this)">
+          <span class="t-caret">▶</span><span class="t-num">1.</span>
+          <span class="t-title">How to Approach LLD in an Interview</span>
+        </button>
+        <div class="topic-body">
+
+          <div class="sub-block">
+            <button class="sub-toggle" onclick="toggleEl(this)">
+              <span class="s-caret">▶</span><span class="s-title">Don't Start Coding Immediately</span>
+            </button>
+            <div class="sub-body">
+              <div class="warn-box"><span class="label">WRONG</span>Interviewer says "Design a Parking Lot" → you immediately write class ParkingLot {}</div>
+              <div class="tip-box"><span class="label">RIGHT</span>Ask: "How is this parking lot supposed to work?" — clarify requirements first.</div>
+              <div class="code-block">Questions to ask:
+  1 level or multiple levels?
+  2-wheeler / 4-wheeler / EV?
+  Multiple entry / exit gates?
+  How is a spot selected?
+  How is payment made?
+  How is pricing calculated?</div>
+            </div>
+          </div>
+
+          <div class="sub-block">
+            <button class="sub-toggle" onclick="toggleEl(this)">
+              <span class="s-caret">▶</span><span class="s-title">The Correct Process</span>
+            </button>
+            <div class="sub-body">
+              <div class="code-block">Requirement
+    ↓
+Understand real-world flow
+    ↓
+Identify objects
+    ↓
+Give each object a responsibility
+    ↓
+Connect objects
+    ↓
+Handle changing behavior → Strategy
+    ↓
+Handle concurrency
+    ↓
+Write code</div>
+              <div class="tip-box"><span class="label">KEY</span>First clarify the flow. Objects come naturally from that.</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ══════════════════════════
+           TOPIC 2 — Flow
+      ══════════════════════════ -->
+      <div class="topic-block">
+        <button class="topic-toggle" onclick="toggleEl(this)">
+          <span class="t-caret">▶</span><span class="t-num">2.</span>
+          <span class="t-title">Complete Real-World Flow</span>
+        </button>
+        <div class="topic-body">
+
+          <div class="sub-block">
+            <button class="sub-toggle" onclick="toggleEl(this)">
+              <span class="s-caret">▶</span><span class="s-title">Entry Flow</span>
+            </button>
+            <div class="sub-body">
+              <div class="code-block">Vehicle arrives
+      ↓
+Entry Gate
+      ↓
+Find suitable parking spot
+      ↓
+Park vehicle
+      ↓
+Generate Ticket
+      ↓
+Vehicle is parked ✓</div>
+            </div>
+          </div>
+
+          <div class="sub-block">
+            <button class="sub-toggle" onclick="toggleEl(this)">
+              <span class="s-caret">▶</span><span class="s-title">Exit Flow</span>
+            </button>
+            <div class="sub-body">
+              <div class="code-block">Vehicle arrives at Exit Gate
+      ↓
+Show Ticket
+      ↓
+Calculate Price
+      ↓
+Choose Payment Method
+      ↓
+Make Payment
+      ↓
+Release Parking Spot
+      ↓
+Open Gate ✓</div>
+            </div>
+          </div>
+
+          <div class="sub-block">
+            <button class="sub-toggle" onclick="toggleEl(this)">
+              <span class="s-caret">▶</span><span class="s-title">Parking Lot Structure</span>
+            </button>
+            <div class="sub-body">
+              <div class="code-block">Parking Lot
+    │
+    ├── Entry Gates
+    ├── Exit Gates
+    └── Parking Building
+              │
+              ├── Level 1
+              │     ├── 2-Wheeler spots
+              │     ├── 4-Wheeler spots
+              │     └── EV spots
+              ├── Level 2
+              └── Level 3</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ══════════════════════════
+           TOPIC 3 — Vehicle
+      ══════════════════════════ -->
+      <div class="topic-block">
+        <button class="topic-toggle" onclick="toggleEl(this)">
+          <span class="t-caret">▶</span><span class="t-num">3.</span>
+          <span class="t-title">Vehicle</span>
+        </button>
+        <div class="topic-body">
+
+          <div class="sub-block">
+            <button class="sub-toggle" onclick="toggleEl(this)">
+              <span class="s-caret">▶</span><span class="s-title">Responsibility</span>
+            </button>
+            <div class="sub-body">
+              <p class="content-text">Represents the entity entering the parking lot. Only answers: <strong>Who am I? What type am I?</strong></p>
+              <div class="tip-box"><span class="label">SRP</span>No parking logic inside Vehicle. It only holds identity data.</div>
+            </div>
+          </div>
+
+          <div class="sub-block">
+            <button class="sub-toggle" onclick="toggleEl(this)">
+              <span class="s-caret">▶</span><span class="s-title">Code</span>
+            </button>
+            <div class="sub-body">
+              <div class="code-block"><span class="kw">enum</span> <span class="cl">VehicleType</span> {
+    TWO_WHEELER,
+    FOUR_WHEELER
+}
+
+<span class="kw">class</span> <span class="cl">Vehicle</span> {
+    <span class="kw">private</span> <span class="cl">String</span> id;
+    <span class="kw">private</span> <span class="cl">VehicleType</span> type;
+
+    <span class="kw">public</span> <span class="fn">Vehicle</span>(<span class="cl">String</span> id, <span class="cl">VehicleType</span> type) {
+        <span class="kw">this</span>.id   = id;
+        <span class="kw">this</span>.type = type;
+    }
+
+    <span class="kw">public</span> <span class="cl">String</span>      <span class="fn">getId</span>()   { <span class="kw">return</span> id; }
+    <span class="kw">public</span> <span class="cl">VehicleType</span> <span class="fn">getType</span>() { <span class="kw">return</span> type; }
+}</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ══════════════════════════
+           TOPIC 4 — ParkingSpot
+      ══════════════════════════ -->
+      <div class="topic-block">
+        <button class="topic-toggle" onclick="toggleEl(this)">
+          <span class="t-caret">▶</span><span class="t-num">4.</span>
+          <span class="t-title">ParkingSpot</span>
+        </button>
+        <div class="topic-body">
+
+          <div class="sub-block">
+            <button class="sub-toggle" onclick="toggleEl(this)">
+              <span class="s-caret">▶</span><span class="s-title">Responsibility</span>
+            </button>
+            <div class="sub-body">
+              <p class="content-text">Represents one physical spot. Knows its ID, which vehicle type it supports, and whether it is free.</p>
+              <div class="code-block">ParkingSpot
+    ├── id          → "L1-S1"
+    ├── vehicleType → TWO_WHEELER
+    └── free        → true / false</div>
+            </div>
+          </div>
+
+          <div class="sub-block">
+            <button class="sub-toggle" onclick="toggleEl(this)">
+              <span class="s-caret">▶</span><span class="s-title">Code</span>
+            </button>
+            <div class="sub-body">
+              <div class="code-block"><span class="kw">class</span> <span class="cl">ParkingSpot</span> {
+    <span class="kw">private</span> <span class="cl">String</span>      id;
+    <span class="kw">private</span> <span class="cl">VehicleType</span> vehicleType;
+    <span class="kw">private boolean</span>     free = <span class="kw">true</span>;
+
+    <span class="kw">public</span> <span class="fn">ParkingSpot</span>(<span class="cl">String</span> id, <span class="cl">VehicleType</span> vehicleType) {
+        <span class="kw">this</span>.id          = id;
+        <span class="kw">this</span>.vehicleType = vehicleType;
+    }
+
+    <span class="kw">public</span> <span class="cl">String</span>      <span class="fn">getId</span>()          { <span class="kw">return</span> id; }
+    <span class="kw">public</span> <span class="cl">VehicleType</span> <span class="fn">getVehicleType</span>() { <span class="kw">return</span> vehicleType; }
+    <span class="kw">public boolean</span>     <span class="fn">isFree</span>()         { <span class="kw">return</span> free; }
+
+    <span class="kw">public void</span> <span class="fn">occupy</span>()  { free = <span class="kw">false</span>; }
+    <span class="kw">public void</span> <span class="fn">release</span>() { free = <span class="kw">true</span>;  }
+}</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ══════════════════════════
+           TOPIC 5 — SpotManager + Strategy
+      ══════════════════════════ -->
+      <div class="topic-block">
+        <button class="topic-toggle" onclick="toggleEl(this)">
+          <span class="t-caret">▶</span><span class="t-num">5.</span>
+          <span class="t-title">ParkingSpotManager + Lookup Strategy</span>
+        </button>
+        <div class="topic-body">
+
+          <div class="sub-block">
+            <button class="sub-toggle" onclick="toggleEl(this)">
+              <span class="s-caret">▶</span><span class="s-title">Why a SpotManager?</span>
+            </button>
+            <div class="sub-body">
+              <p class="content-text">A level with 100 spots shouldn't manage them itself — that's too many responsibilities. So we introduce a dedicated manager per vehicle type.</p>
+              <div class="code-block">ParkingLevel
+     │
+     ├── TwoWheelerSpotManager   → L1-S1, L1-S2
+     └── FourWheelerSpotManager  → L1-S3</div>
+              <div class="tip-box"><span class="label">SRP</span>Each manager handles only its own kind of spots.</div>
+            </div>
+          </div>
+
+          <div class="sub-block">
+            <button class="sub-toggle" onclick="toggleEl(this)">
+              <span class="s-caret">▶</span><span class="s-title">Why a Lookup Strategy?</span>
+            </button>
+            <div class="sub-body">
+              <p class="content-text">How we select a free spot can change over time.</p>
+              <div class="code-block">Today   → Pick first available spot
+Tomorrow → Pick nearest spot
+Later    → Pick random spot</div>
+              <div class="tip-box"><span class="label">STRATEGY</span>Extract "how to choose a spot" into a Strategy so the manager doesn't need to change.</div>
+            </div>
+          </div>
+
+          <div class="sub-block">
+            <button class="sub-toggle" onclick="toggleEl(this)">
+              <span class="s-caret">▶</span><span class="s-title">Lookup Strategy Code</span>
+            </button>
+            <div class="sub-body">
+              <div class="code-block"><span class="kw">interface</span> <span class="cl">ParkingSpotLookupStrategy</span> {
+    <span class="cl">ParkingSpot</span> <span class="fn">selectSpot</span>(<span class="cl">List</span>&lt;<span class="cl">ParkingSpot</span>&gt; spots);
+}
+
+<span class="kw">class</span> <span class="cl">FirstAvailableStrategy</span> <span class="kw">implements</span> <span class="cl">ParkingSpotLookupStrategy</span> {
+    <span class="an">@Override</span>
+    <span class="kw">public</span> <span class="cl">ParkingSpot</span> <span class="fn">selectSpot</span>(<span class="cl">List</span>&lt;<span class="cl">ParkingSpot</span>&gt; spots) {
+        <span class="kw">for</span> (<span class="cl">ParkingSpot</span> spot : spots)
+            <span class="kw">if</span> (spot.<span class="fn">isFree</span>()) <span class="kw">return</span> spot;
+        <span class="kw">return null</span>;
+    }
+}</div>
+            </div>
+          </div>
+
+          <div class="sub-block">
+            <button class="sub-toggle" onclick="toggleEl(this)">
+              <span class="s-caret">▶</span><span class="s-title">Abstract ParkingSpotManager Code</span>
+            </button>
+            <div class="sub-body">
+              <div class="code-block"><span class="kw">abstract class</span> <span class="cl">ParkingSpotManager</span> {
+
+    <span class="kw">protected</span> <span class="cl">List</span>&lt;<span class="cl">ParkingSpot</span>&gt;       spots;
+    <span class="kw">private</span>   <span class="cl">ParkingSpotLookupStrategy</span> lookupStrategy;
+
+    <span class="kw">public</span> <span class="fn">ParkingSpotManager</span>(<span class="cl">List</span>&lt;<span class="cl">ParkingSpot</span>&gt; spots,
+                               <span class="cl">ParkingSpotLookupStrategy</span> strategy) {
+        <span class="kw">this</span>.spots          = spots;
+        <span class="kw">this</span>.lookupStrategy = strategy;
+    }
+
+    <span class="kw">public synchronized</span> <span class="cl">ParkingSpot</span> <span class="fn">park</span>() {
+        <span class="cm">// synchronized → locks only THIS manager, not the whole lot</span>
+        <span class="cl">ParkingSpot</span> spot = lookupStrategy.<span class="fn">selectSpot</span>(spots);
+        <span class="kw">if</span> (spot == <span class="kw">null</span>) <span class="kw">return null</span>;
+        spot.<span class="fn">occupy</span>();
+        <span class="kw">return</span> spot;
+    }
+
+    <span class="kw">public synchronized void</span> <span class="fn">unpark</span>(<span class="cl">ParkingSpot</span> spot) {
+        spot.<span class="fn">release</span>();
+    }
+}</div>
+            </div>
+          </div>
+
+          <div class="sub-block">
+            <button class="sub-toggle" onclick="toggleEl(this)">
+              <span class="s-caret">▶</span><span class="s-title">Concrete Managers Code</span>
+            </button>
+            <div class="sub-body">
+              <div class="code-block"><span class="kw">class</span> <span class="cl">TwoWheelerSpotManager</span> <span class="kw">extends</span> <span class="cl">ParkingSpotManager</span> {
+    <span class="kw">public</span> <span class="fn">TwoWheelerSpotManager</span>(<span class="cl">List</span>&lt;<span class="cl">ParkingSpot</span>&gt; spots,
+                                  <span class="cl">ParkingSpotLookupStrategy</span> s) {
+        <span class="kw">super</span>(spots, s);
+    }
+}
+
+<span class="kw">class</span> <span class="cl">FourWheelerSpotManager</span> <span class="kw">extends</span> <span class="cl">ParkingSpotManager</span> {
+    <span class="kw">public</span> <span class="fn">FourWheelerSpotManager</span>(<span class="cl">List</span>&lt;<span class="cl">ParkingSpot</span>&gt; spots,
+                                   <span class="cl">ParkingSpotLookupStrategy</span> s) {
+        <span class="kw">super</span>(spots, s);
+    }
+}</div>
+              <div class="tip-box"><span class="label">IS-A</span>TwoWheelerSpotManager IS-A ParkingSpotManager. Common logic lives in abstract parent.</div>
+            </div>
+          </div>
+
+          <div class="sub-block">
+            <button class="sub-toggle" onclick="toggleEl(this)">
+              <span class="s-caret">▶</span><span class="s-title">Why synchronized only on Manager?</span>
+            </button>
+            <div class="sub-body">
+              <div class="code-block"><span class="cm">// BAD — lock the whole parking lot:</span>
+Bike request → LOCK WHOLE PARKING LOT → Car waits
+
+<span class="cm">// GOOD — lock only the relevant manager:</span>
+Bike → locks 2W Manager
+Car  → 4W Manager continues independently
+EV   → EV Manager continues independently</div>
+              <div class="tip-box"><span class="label">CONCURRENCY</span>Lock the smallest area that must be protected. Unrelated vehicle types proceed in parallel.</div>
+              <div class="info-box"><span class="label">INTERVIEW</span>"We keep locking at the spot-manager level rather than locking the entire parking lot, allowing unrelated vehicle types to proceed concurrently."</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ══════════════════════════
+           TOPIC 6 — ParkingLevel
+      ══════════════════════════ -->
+      <div class="topic-block">
+        <button class="topic-toggle" onclick="toggleEl(this)">
+          <span class="t-caret">▶</span><span class="t-num">6.</span>
+          <span class="t-title">ParkingLevel</span>
+        </button>
+        <div class="topic-body">
+
+          <div class="sub-block">
+            <button class="sub-toggle" onclick="toggleEl(this)">
+              <span class="s-caret">▶</span><span class="s-title">Responsibility</span>
+            </button>
+            <div class="sub-body">
+              <p class="content-text">Manages the spot managers belonging to one floor. Routes vehicle to the correct manager by vehicle type.</p>
+              <div class="code-block">ParkingLevel
+   ↓
+VehicleType → correct Manager
+   ↓
+Manager.park() / Manager.unpark()</div>
+            </div>
+          </div>
+
+          <div class="sub-block">
+            <button class="sub-toggle" onclick="toggleEl(this)">
+              <span class="s-caret">▶</span><span class="s-title">Code</span>
+            </button>
+            <div class="sub-body">
+              <div class="code-block"><span class="kw">class</span> <span class="cl">ParkingLevel</span> {
+    <span class="kw">private int</span>                                    levelNumber;
+    <span class="kw">private</span> <span class="cl">Map</span>&lt;<span class="cl">VehicleType</span>, <span class="cl">ParkingSpotManager</span>&gt; managers;
+
+    <span class="kw">public</span> <span class="fn">ParkingLevel</span>(<span class="kw">int</span> levelNumber,
+                        <span class="cl">Map</span>&lt;<span class="cl">VehicleType</span>, <span class="cl">ParkingSpotManager</span>&gt; managers) {
+        <span class="kw">this</span>.levelNumber = levelNumber;
+        <span class="kw">this</span>.managers    = managers;
+    }
+
+    <span class="kw">public int</span> <span class="fn">getLevelNumber</span>() { <span class="kw">return</span> levelNumber; }
+
+    <span class="kw">public</span> <span class="cl">ParkingSpot</span> <span class="fn">park</span>(<span class="cl">Vehicle</span> vehicle) {
+        <span class="cl">ParkingSpotManager</span> mgr = managers.<span class="fn">get</span>(vehicle.<span class="fn">getType</span>());
+        <span class="kw">return</span> (mgr == <span class="kw">null</span>) ? <span class="kw">null</span> : mgr.<span class="fn">park</span>();
+    }
+
+    <span class="kw">public void</span> <span class="fn">unpark</span>(<span class="cl">Vehicle</span> vehicle, <span class="cl">ParkingSpot</span> spot) {
+        <span class="cl">ParkingSpotManager</span> mgr = managers.<span class="fn">get</span>(vehicle.<span class="fn">getType</span>());
+        <span class="kw">if</span> (mgr != <span class="kw">null</span>) mgr.<span class="fn">unpark</span>(spot);
+    }
+}</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ══════════════════════════
+           TOPIC 7 — Building + Allocation
+      ══════════════════════════ -->
+      <div class="topic-block">
+        <button class="topic-toggle" onclick="toggleEl(this)">
+          <span class="t-caret">▶</span><span class="t-num">7.</span>
+          <span class="t-title">ParkingBuilding + ParkingAllocation</span>
+        </button>
+        <div class="topic-body">
+
+          <div class="sub-block">
+            <button class="sub-toggle" onclick="toggleEl(this)">
+              <span class="s-caret">▶</span><span class="s-title">Why ParkingBuilding?</span>
+            </button>
+            <div class="sub-body">
+              <p class="content-text">Decides <strong>which level</strong> handles the vehicle. Iterates levels until one can park the vehicle.</p>
+              <div class="code-block">Bike arrives
+ ↓
+Building checks Level 1 → has 2W spot? YES → park
+                                        NO  → check Level 2 → ...</div>
+              <div class="tip-box"><span class="label">FUTURE</span>Level selection can also become a Strategy (nearest level, least occupied, etc.).</div>
+            </div>
+          </div>
+
+          <div class="sub-block">
+            <button class="sub-toggle" onclick="toggleEl(this)">
+              <span class="s-caret">▶</span><span class="s-title">Why ParkingAllocation?</span>
+            </button>
+            <div class="sub-body">
+              <p class="content-text">After parking, EntryGate needs both <strong>level number + spot</strong> to create a ticket. So Building returns a small wrapper object.</p>
+              <div class="code-block"><span class="kw">class</span> <span class="cl">ParkingAllocation</span> {
+    <span class="kw">private int</span>         levelNumber;
+    <span class="kw">private</span> <span class="cl">ParkingSpot</span> spot;
+
+    <span class="kw">public</span> <span class="fn">ParkingAllocation</span>(<span class="kw">int</span> lvl, <span class="cl">ParkingSpot</span> spot) {
+        <span class="kw">this</span>.levelNumber = lvl;
+        <span class="kw">this</span>.spot        = spot;
+    }
+    <span class="kw">public int</span>         <span class="fn">getLevelNumber</span>() { <span class="kw">return</span> levelNumber; }
+    <span class="kw">public</span> <span class="cl">ParkingSpot</span> <span class="fn">getSpot</span>()       { <span class="kw">return</span> spot; }
+}</div>
+            </div>
+          </div>
+
+          <div class="sub-block">
+            <button class="sub-toggle" onclick="toggleEl(this)">
+              <span class="s-caret">▶</span><span class="s-title">ParkingBuilding Code</span>
+            </button>
+            <div class="sub-body">
+              <div class="code-block"><span class="kw">class</span> <span class="cl">ParkingBuilding</span> {
+    <span class="kw">private</span> <span class="cl">List</span>&lt;<span class="cl">ParkingLevel</span>&gt; levels;
+
+    <span class="kw">public</span> <span class="fn">ParkingBuilding</span>(<span class="cl">List</span>&lt;<span class="cl">ParkingLevel</span>&gt; levels) {
+        <span class="kw">this</span>.levels = levels;
+    }
+
+    <span class="kw">public</span> <span class="cl">ParkingAllocation</span> <span class="fn">allocate</span>(<span class="cl">Vehicle</span> vehicle) {
+        <span class="kw">for</span> (<span class="cl">ParkingLevel</span> level : levels) {
+            <span class="cl">ParkingSpot</span> spot = level.<span class="fn">park</span>(vehicle);
+            <span class="kw">if</span> (spot != <span class="kw">null</span>) {
+                System.out.<span class="fn">println</span>(<span class="st">"Vehicle "</span> + vehicle.<span class="fn">getId</span>()
+                    + <span class="st">" parked at Level "</span> + level.<span class="fn">getLevelNumber</span>()
+                    + <span class="st">", Spot "</span> + spot.<span class="fn">getId</span>());
+                <span class="kw">return new</span> <span class="cl">ParkingAllocation</span>(level.<span class="fn">getLevelNumber</span>(), spot);
+            }
+        }
+        <span class="kw">return null</span>;
+    }
+
+    <span class="kw">public void</span> <span class="fn">release</span>(<span class="cl">Vehicle</span> vehicle, <span class="kw">int</span> levelNumber, <span class="cl">ParkingSpot</span> spot) {
+        <span class="kw">for</span> (<span class="cl">ParkingLevel</span> level : levels)
+            <span class="kw">if</span> (level.<span class="fn">getLevelNumber</span>() == levelNumber) {
+                level.<span class="fn">unpark</span>(vehicle, spot);
+                <span class="kw">return</span>;
+            }
+    }
+}</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ══════════════════════════
+           TOPIC 8 — Ticket
+      ══════════════════════════ -->
+      <div class="topic-block">
+        <button class="topic-toggle" onclick="toggleEl(this)">
+          <span class="t-caret">▶</span><span class="t-num">8.</span>
+          <span class="t-title">Ticket</span>
+        </button>
+        <div class="topic-body">
+
+          <div class="sub-block">
+            <button class="sub-toggle" onclick="toggleEl(this)">
+              <span class="s-caret">▶</span><span class="s-title">Responsibility</span>
+            </button>
+            <div class="sub-body">
+              <p class="content-text">Binds vehicle + level + spot + entry time together. The memory of the parking event.</p>
+              <div class="code-block">Ticket
+ ├── Vehicle  → Bike 101
+ ├── Level    → 1
+ ├── Spot     → L1-S1
+ └── Entry    → System.currentTimeMillis()</div>
+            </div>
+          </div>
+
+          <div class="sub-block">
+            <button class="sub-toggle" onclick="toggleEl(this)">
+              <span class="s-caret">▶</span><span class="s-title">Code</span>
+            </button>
+            <div class="sub-body">
+              <div class="code-block"><span class="kw">class</span> <span class="cl">Ticket</span> {
+    <span class="kw">private</span> <span class="cl">Vehicle</span>     vehicle;
+    <span class="kw">private int</span>         levelNumber;
+    <span class="kw">private</span> <span class="cl">ParkingSpot</span> spot;
+    <span class="kw">private long</span>        entryTime;
+
+    <span class="kw">public</span> <span class="fn">Ticket</span>(<span class="cl">Vehicle</span> vehicle, <span class="kw">int</span> levelNumber, <span class="cl">ParkingSpot</span> spot) {
+        <span class="kw">this</span>.vehicle     = vehicle;
+        <span class="kw">this</span>.levelNumber = levelNumber;
+        <span class="kw">this</span>.spot        = spot;
+        <span class="kw">this</span>.entryTime   = System.<span class="fn">currentTimeMillis</span>();
+    }
+
+    <span class="kw">public</span> <span class="cl">Vehicle</span>     <span class="fn">getVehicle</span>()     { <span class="kw">return</span> vehicle; }
+    <span class="kw">public int</span>         <span class="fn">getLevelNumber</span>() { <span class="kw">return</span> levelNumber; }
+    <span class="kw">public</span> <span class="cl">ParkingSpot</span> <span class="fn">getSpot</span>()       { <span class="kw">return</span> spot; }
+    <span class="kw">public long</span>        <span class="fn">getEntryTime</span>()  { <span class="kw">return</span> entryTime; }
+}</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ══════════════════════════
+           TOPIC 9 — EntryGate
+      ══════════════════════════ -->
+      <div class="topic-block">
+        <button class="topic-toggle" onclick="toggleEl(this)">
+          <span class="t-caret">▶</span><span class="t-num">9.</span>
+          <span class="t-title">EntryGate</span>
+        </button>
+        <div class="topic-body">
+
+          <div class="sub-block">
+            <button class="sub-toggle" onclick="toggleEl(this)">
+              <span class="s-caret">▶</span><span class="s-title">Responsibility — Delegation</span>
+            </button>
+            <div class="sub-body">
+              <p class="content-text">Entry Gate does NOT know how to find a spot. It simply delegates to Building.</p>
+              <div class="code-block">EntryGate
+    ↓
+"Building, here is a vehicle. You handle parking."
+    ↓
+Building → Level → Manager → Spot
+    ↓
+EntryGate creates Ticket and returns it</div>
+              <div class="tip-box"><span class="label">DELEGATION</span>Entry Gate only orchestrates. All decisions are made by the Building chain.</div>
+            </div>
+          </div>
+
+          <div class="sub-block">
+            <button class="sub-toggle" onclick="toggleEl(this)">
+              <span class="s-caret">▶</span><span class="s-title">Code</span>
+            </button>
+            <div class="sub-body">
+              <div class="code-block"><span class="kw">class</span> <span class="cl">EntryGate</span> {
+
+    <span class="kw">public</span> <span class="cl">Ticket</span> <span class="fn">enter</span>(<span class="cl">ParkingBuilding</span> building, <span class="cl">Vehicle</span> vehicle) {
+
+        <span class="cl">ParkingAllocation</span> allocation = building.<span class="fn">allocate</span>(vehicle);
+
+        <span class="kw">if</span> (allocation == <span class="kw">null</span>) {
+            System.out.<span class="fn">println</span>(<span class="st">"No parking available."</span>);
+            <span class="kw">return null</span>;
+        }
+
+        <span class="kw">return new</span> <span class="cl">Ticket</span>(
+            vehicle,
+            allocation.<span class="fn">getLevelNumber</span>(),
+            allocation.<span class="fn">getSpot</span>()
+        );
+    }
+}</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ══════════════════════════
+           TOPIC 10 — ExitGate + Strategies
+      ══════════════════════════ -->
+      <div class="topic-block">
+        <button class="topic-toggle" onclick="toggleEl(this)">
+          <span class="t-caret">▶</span><span class="t-num">10.</span>
+          <span class="t-title">ExitGate + Pricing + Payment Strategies</span>
+        </button>
+        <div class="topic-body">
+
+          <div class="sub-block">
+            <button class="sub-toggle" onclick="toggleEl(this)">
+              <span class="s-caret">▶</span><span class="s-title">Exit Gate — 3 Steps</span>
+            </button>
+            <div class="sub-body">
+              <div class="code-block">Exit Gate
+    ↓
+Step 1: PricingStrategy.calculatePrice(ticket)
+    ↓
+Step 2: PaymentStrategy.pay(amount)
+    ↓
+Step 3: Building.release() → Spot becomes free
+    ↓
+Gate opens ✓</div>
+              <div class="warn-box"><span class="label">IMPORTANT</span>If payment fails → do NOT release the spot. Gate stays closed.</div>
+            </div>
+          </div>
+
+          <div class="sub-block">
+            <button class="sub-toggle" onclick="toggleEl(this)">
+              <span class="s-caret">▶</span><span class="s-title">Pricing Strategy Code</span>
+            </button>
+            <div class="sub-body">
+              <div class="code-block"><span class="kw">interface</span> <span class="cl">PricingStrategy</span> {
+    <span class="kw">double</span> <span class="fn">calculatePrice</span>(<span class="cl">Ticket</span> ticket);
+}
+
+<span class="cm">// Fixed pricing</span>
+<span class="kw">class</span> <span class="cl">FixedPricingStrategy</span> <span class="kw">implements</span> <span class="cl">PricingStrategy</span> {
+    <span class="an">@Override</span>
+    <span class="kw">public double</span> <span class="fn">calculatePrice</span>(<span class="cl">Ticket</span> ticket) { <span class="kw">return</span> 100; }
+}
+
+<span class="cm">// Hourly pricing (future)</span>
+<span class="cm">// class HourlyPricingStrategy implements PricingStrategy { ... }</span></div>
+            </div>
+          </div>
+
+          <div class="sub-block">
+            <button class="sub-toggle" onclick="toggleEl(this)">
+              <span class="s-caret">▶</span><span class="s-title">Payment Strategy Code</span>
+            </button>
+            <div class="sub-body">
+              <div class="code-block"><span class="kw">interface</span> <span class="cl">PaymentStrategy</span> {
+    <span class="kw">boolean</span> <span class="fn">pay</span>(<span class="kw">double</span> amount);
+}
+
+<span class="kw">class</span> <span class="cl">CashPayment</span> <span class="kw">implements</span> <span class="cl">PaymentStrategy</span> {
+    <span class="an">@Override</span>
+    <span class="kw">public boolean</span> <span class="fn">pay</span>(<span class="kw">double</span> amount) {
+        System.out.<span class="fn">println</span>(<span class="st">"Cash payment: ₹"</span> + amount);
+        <span class="kw">return true</span>;
+    }
+}
+
+<span class="kw">class</span> <span class="cl">UPIPayment</span> <span class="kw">implements</span> <span class="cl">PaymentStrategy</span> {
+    <span class="an">@Override</span>
+    <span class="kw">public boolean</span> <span class="fn">pay</span>(<span class="kw">double</span> amount) {
+        System.out.<span class="fn">println</span>(<span class="st">"UPI payment: ₹"</span> + amount);
+        <span class="kw">return true</span>;
+    }
+}</div>
+            </div>
+          </div>
+
+          <div class="sub-block">
+            <button class="sub-toggle" onclick="toggleEl(this)">
+              <span class="s-caret">▶</span><span class="s-title">ExitGate Code</span>
+            </button>
+            <div class="sub-body">
+              <div class="code-block"><span class="kw">class</span> <span class="cl">ExitGate</span> {
+    <span class="kw">private</span> <span class="cl">PricingStrategy</span> pricingStrategy;
+
+    <span class="kw">public</span> <span class="fn">ExitGate</span>(<span class="cl">PricingStrategy</span> pricingStrategy) {
+        <span class="kw">this</span>.pricingStrategy = pricingStrategy;
+    }
+
+    <span class="kw">public void</span> <span class="fn">exit</span>(<span class="cl">ParkingBuilding</span> building,
+                       <span class="cl">Ticket</span>          ticket,
+                       <span class="cl">PaymentStrategy</span>  paymentStrategy) {
+
+        <span class="cm">// STEP 1 — Calculate price</span>
+        <span class="kw">double</span> amount = pricingStrategy.<span class="fn">calculatePrice</span>(ticket);
+        System.out.<span class="fn">println</span>(<span class="st">"Amount due: ₹"</span> + amount);
+
+        <span class="cm">// STEP 2 — Pay</span>
+        <span class="kw">boolean</span> success = paymentStrategy.<span class="fn">pay</span>(amount);
+        <span class="kw">if</span> (!success) {
+            System.out.<span class="fn">println</span>(<span class="st">"Payment failed. Exit denied."</span>);
+            <span class="kw">return</span>;
+        }
+
+        <span class="cm">// STEP 3 — Release spot</span>
+        building.<span class="fn">release</span>(ticket.<span class="fn">getVehicle</span>(),
+                          ticket.<span class="fn">getLevelNumber</span>(),
+                          ticket.<span class="fn">getSpot</span>());
+        System.out.<span class="fn">println</span>(<span class="st">"Exit successful. Gate opened."</span>);
+    }
+}</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ══════════════════════════
+           TOPIC 11 — ParkingLot
+      ══════════════════════════ -->
+      <div class="topic-block">
+        <button class="topic-toggle" onclick="toggleEl(this)">
+          <span class="t-caret">▶</span><span class="t-num">11.</span>
+          <span class="t-title">ParkingLot</span>
+        </button>
+        <div class="topic-body">
+
+          <div class="sub-block">
+            <button class="sub-toggle" onclick="toggleEl(this)">
+              <span class="s-caret">▶</span><span class="s-title">Responsibility + HAS-A</span>
+            </button>
+            <div class="sub-body">
+              <p class="content-text">The top-level container. Holds the building and all gates. Uses lists for gates so we can scale.</p>
+              <div class="code-block">ParkingLot HAS-A Building
+ParkingLot HAS-A List&lt;EntryGate&gt;
+ParkingLot HAS-A List&lt;ExitGate&gt;</div>
+              <div class="tip-box"><span class="label">SCALABLE</span>List of gates supports 1 gate today, 10 gates tomorrow — no redesign needed.</div>
+            </div>
+          </div>
+
+          <div class="sub-block">
+            <button class="sub-toggle" onclick="toggleEl(this)">
+              <span class="s-caret">▶</span><span class="s-title">Code</span>
+            </button>
+            <div class="sub-body">
+              <div class="code-block"><span class="kw">class</span> <span class="cl">ParkingLot</span> {
+    <span class="kw">private</span> <span class="cl">ParkingBuilding</span>  building;
+    <span class="kw">private</span> <span class="cl">List</span>&lt;<span class="cl">EntryGate</span>&gt;  entryGates;
+    <span class="kw">private</span> <span class="cl">List</span>&lt;<span class="cl">ExitGate</span>&gt;   exitGates;
+
+    <span class="kw">public</span> <span class="fn">ParkingLot</span>(<span class="cl">ParkingBuilding</span> building,
+                      <span class="cl">List</span>&lt;<span class="cl">EntryGate</span>&gt;  entryGates,
+                      <span class="cl">List</span>&lt;<span class="cl">ExitGate</span>&gt;   exitGates) {
+        <span class="kw">this</span>.building   = building;
+        <span class="kw">this</span>.entryGates = entryGates;
+        <span class="kw">this</span>.exitGates  = exitGates;
+    }
+
+    <span class="kw">public</span> <span class="cl">Ticket</span> <span class="fn">vehicleEnter</span>(<span class="cl">Vehicle</span> vehicle) {
+        <span class="kw">return</span> entryGates.<span class="fn">get</span>(0).<span class="fn">enter</span>(building, vehicle);
+    }
+
+    <span class="kw">public void</span> <span class="fn">vehicleExit</span>(<span class="cl">Ticket</span> ticket, <span class="cl">PaymentStrategy</span> paymentStrategy) {
+        exitGates.<span class="fn">get</span>(0).<span class="fn">exit</span>(building, ticket, paymentStrategy);
+    }
+}</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ══════════════════════════
+           TOPIC 12 — Main
+      ══════════════════════════ -->
+      <div class="topic-block">
+        <button class="topic-toggle" onclick="toggleEl(this)">
+          <span class="t-caret">▶</span><span class="t-num">12.</span>
+          <span class="t-title">Main — How to Read the Code</span>
+        </button>
+        <div class="topic-body">
+
+          <div class="sub-block">
+            <button class="sub-toggle" onclick="toggleEl(this)">
+              <span class="s-caret">▶</span><span class="s-title">Don't Read Top-to-Bottom — Start from main()</span>
+            </button>
+            <div class="sub-body">
+              <div class="tip-box"><span class="label">LLD TRICK</span>For LLD, start from the execution flow in main(). Ask "who handles this?" at each step.</div>
+              <div class="code-block"><span class="cm">// Step 1: A bike arrives</span>
+<span class="cl">Vehicle</span> bike = <span class="kw">new</span> <span class="cl">Vehicle</span>(<span class="st">"101"</span>, <span class="cl">VehicleType</span>.TWO_WHEELER);
+
+<span class="cm">// Step 2: Enter → Lot → EntryGate → Building → Level → Manager → Spot → Ticket</span>
+<span class="cl">Ticket</span> ticket = parkingLot.<span class="fn">vehicleEnter</span>(bike);
+
+<span class="cm">// Step 3: Exit → Lot → ExitGate → Pricing → UPI → Release → Gate opens</span>
+<span class="kw">if</span> (ticket != <span class="kw">null</span>)
+    parkingLot.<span class="fn">vehicleExit</span>(ticket, <span class="kw">new</span> <span class="cl">UPIPayment</span>());</div>
+            </div>
+          </div>
+
+          <div class="sub-block">
+            <button class="sub-toggle" onclick="toggleEl(this)">
+              <span class="s-caret">▶</span><span class="s-title">Full Main Setup Code</span>
+            </button>
+            <div class="sub-body">
+              <div class="code-block"><span class="cm">// Spots</span>
+<span class="cl">ParkingSpot</span> bikeSpot1 = <span class="kw">new</span> <span class="cl">ParkingSpot</span>(<span class="st">"L1-S1"</span>, <span class="cl">VehicleType</span>.TWO_WHEELER);
+<span class="cl">ParkingSpot</span> bikeSpot2 = <span class="kw">new</span> <span class="cl">ParkingSpot</span>(<span class="st">"L1-S2"</span>, <span class="cl">VehicleType</span>.TWO_WHEELER);
+<span class="cl">ParkingSpot</span> carSpot   = <span class="kw">new</span> <span class="cl">ParkingSpot</span>(<span class="st">"L1-S3"</span>, <span class="cl">VehicleType</span>.FOUR_WHEELER);
+
+<span class="cm">// Strategy</span>
+<span class="cl">ParkingSpotLookupStrategy</span> strategy = <span class="kw">new</span> <span class="cl">FirstAvailableStrategy</span>();
+
+<span class="cm">// Managers</span>
+<span class="cl">ParkingSpotManager</span> twoW  = <span class="kw">new</span> <span class="cl">TwoWheelerSpotManager</span>(<span class="cl">Arrays</span>.<span class="fn">asList</span>(bikeSpot1, bikeSpot2), strategy);
+<span class="cl">ParkingSpotManager</span> fourW = <span class="kw">new</span> <span class="cl">FourWheelerSpotManager</span>(<span class="cl">Arrays</span>.<span class="fn">asList</span>(carSpot), strategy);
+
+<span class="cm">// Level</span>
+<span class="cl">Map</span>&lt;<span class="cl">VehicleType</span>, <span class="cl">ParkingSpotManager</span>&gt; mgrs = <span class="kw">new</span> <span class="cl">HashMap</span>&lt;&gt;();
+mgrs.<span class="fn">put</span>(<span class="cl">VehicleType</span>.TWO_WHEELER,  twoW);
+mgrs.<span class="fn">put</span>(<span class="cl">VehicleType</span>.FOUR_WHEELER, fourW);
+<span class="cl">ParkingLevel</span> level1 = <span class="kw">new</span> <span class="cl">ParkingLevel</span>(1, mgrs);
+
+<span class="cm">// Building</span>
+<span class="cl">ParkingBuilding</span> building = <span class="kw">new</span> <span class="cl">ParkingBuilding</span>(<span class="cl">Arrays</span>.<span class="fn">asList</span>(level1));
+
+<span class="cm">// Gates</span>
+<span class="cl">EntryGate</span> entryGate = <span class="kw">new</span> <span class="cl">EntryGate</span>();
+<span class="cl">ExitGate</span>  exitGate  = <span class="kw">new</span> <span class="cl">ExitGate</span>(<span class="kw">new</span> <span class="cl">FixedPricingStrategy</span>());
+
+<span class="cm">// Parking Lot</span>
+<span class="cl">ParkingLot</span> parkingLot = <span class="kw">new</span> <span class="cl">ParkingLot</span>(
+    building,
+    <span class="cl">Arrays</span>.<span class="fn">asList</span>(entryGate),
+    <span class="cl">Arrays</span>.<span class="fn">asList</span>(exitGate)
+);</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ══════════════════════════
+           TOPIC 13 — Extensibility
+      ══════════════════════════ -->
+      <div class="topic-block">
+        <button class="topic-toggle" onclick="toggleEl(this)">
+          <span class="t-caret">▶</span><span class="t-num">13.</span>
+          <span class="t-title">Why the Design Is Flexible</span>
+        </button>
+        <div class="topic-body">
+
+          <div class="sub-block">
+            <button class="sub-toggle" onclick="toggleEl(this)">
+              <span class="s-caret">▶</span><span class="s-title">Add EV Vehicle Type</span>
+            </button>
+            <div class="sub-body">
+              <div class="code-block"><span class="kw">class</span> <span class="cl">EVSpotManager</span> <span class="kw">extends</span> <span class="cl">ParkingSpotManager</span> { ... }
+<span class="cm">// Add to managers map in ParkingLevel — nothing else changes</span></div>
+            </div>
+          </div>
+
+          <div class="sub-block">
+            <button class="sub-toggle" onclick="toggleEl(this)">
+              <span class="s-caret">▶</span><span class="s-title">Add New Payment Method</span>
+            </button>
+            <div class="sub-body">
+              <div class="code-block"><span class="kw">class</span> <span class="cl">CardPayment</span> <span class="kw">implements</span> <span class="cl">PaymentStrategy</span> { ... }
+<span class="cm">// ExitGate doesn't change at all</span></div>
+            </div>
+          </div>
+
+          <div class="sub-block">
+            <button class="sub-toggle" onclick="toggleEl(this)">
+              <span class="s-caret">▶</span><span class="s-title">Add New Pricing Method</span>
+            </button>
+            <div class="sub-body">
+              <div class="code-block"><span class="kw">class</span> <span class="cl">HourlyPricingStrategy</span> <span class="kw">implements</span> <span class="cl">PricingStrategy</span> {
+    <span class="an">@Override</span>
+    <span class="kw">public double</span> <span class="fn">calculatePrice</span>(<span class="cl">Ticket</span> ticket) {
+        <span class="kw">long</span> ms    = System.<span class="fn">currentTimeMillis</span>() - ticket.<span class="fn">getEntryTime</span>();
+        <span class="kw">long</span> hours = ms / 3_600_000 + 1;
+        <span class="kw">return</span> hours * 50;
+    }
+}
+<span class="cm">// ExitGate doesn't change at all</span></div>
+            </div>
+          </div>
+
+          <div class="sub-block">
+            <button class="sub-toggle" onclick="toggleEl(this)">
+              <span class="s-caret">▶</span><span class="s-title">Add New Spot Selection Algorithm</span>
+            </button>
+            <div class="sub-body">
+              <div class="code-block"><span class="kw">class</span> <span class="cl">NearestSpotStrategy</span> <span class="kw">implements</span> <span class="cl">ParkingSpotLookupStrategy</span> { ... }
+<span class="cm">// Manager doesn't change — just inject different strategy</span></div>
+              <div class="tip-box"><span class="label">OCP</span>All three changing behaviors are behind strategies. New behavior = new class. Existing classes untouched.</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+    </div><!-- /lecture-body -->
+  </div><!-- /lecture-block -->
+
+  <!-- ════════════════════
+       FINAL REVISION
+  ════════════════════ -->
+  <div class="section-divider"></div>
+
+  <div class="final-block">
+    <button class="final-toggle" onclick="toggleEl(this)">
+      <span class="caret">▶</span>
+      <span class="ltitle">⚡ Final Combined Revision</span>
+    </button>
+    <div class="final-body">
+
+      <div class="topic-block">
+        <button class="topic-toggle" onclick="toggleEl(this)">
+          <span class="t-caret">▶</span><span class="t-num">1.</span>
+          <span class="t-title">Complete Execution Flow</span>
+        </button>
+        <div class="topic-body">
+          <div class="sub-block">
+            <button class="sub-toggle" onclick="toggleEl(this)">
+              <span class="s-caret">▶</span><span class="s-title">Entry</span>
+            </button>
+            <div class="sub-body">
+              <div class="code-block">Bike 101
+   ↓ ParkingLot.vehicleEnter()
+   ↓ EntryGate.enter()
+   ↓ Building.allocate()
+   ↓ Level 1.park()
+   ↓ TwoWheelerSpotManager.park()   [synchronized]
+   ↓ FirstAvailableStrategy.selectSpot()
+   ↓ L1-S1.occupy()
+   ↓ ParkingAllocation(level=1, spot=L1-S1)
+   ↓ new Ticket(bike, 1, L1-S1) ✓</div>
+            </div>
+          </div>
+          <div class="sub-block">
+            <button class="sub-toggle" onclick="toggleEl(this)">
+              <span class="s-caret">▶</span><span class="s-title">Exit</span>
+            </button>
+            <div class="sub-body">
+              <div class="code-block">Ticket
+   ↓ ParkingLot.vehicleExit()
+   ↓ ExitGate.exit()
+   ↓ FixedPricingStrategy → ₹100
+   ↓ UPIPayment.pay(100) → true
+   ↓ Building.release(bike, 1, L1-S1)
+   ↓ Level 1.unpark()
+   ↓ TwoWheelerSpotManager.unpark()   [synchronized]
+   ↓ L1-S1.release() → free = true
+   ↓ Gate opens ✓</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="topic-block">
+        <button class="topic-toggle" onclick="toggleEl(this)">
+          <span class="t-caret">▶</span><span class="t-num">2.</span>
+          <span class="t-title">Class Responsibility Table</span>
+        </button>
+        <div class="topic-body">
+          <table class="mini-table">
+            <tr><th>Class</th><th>Responsibility</th></tr>
+            <tr><td>Vehicle</td><td>Holds ID and vehicle type</td></tr>
+            <tr><td>ParkingSpot</td><td>One physical spot — free/occupied state</td></tr>
+            <tr><td>ParkingSpotManager</td><td>Manages a group of spots (abstract)</td></tr>
+            <tr><td>TwoWheelerSpotManager</td><td>Manages 2-wheeler spots</td></tr>
+            <tr><td>FourWheelerSpotManager</td><td>Manages 4-wheeler spots</td></tr>
+            <tr><td>ParkingLevel</td><td>Routes vehicle to correct manager on this floor</td></tr>
+            <tr><td>ParkingBuilding</td><td>Iterates levels to allocate/release</td></tr>
+            <tr><td>ParkingAllocation</td><td>Bundles level + spot after allocation</td></tr>
+            <tr><td>Ticket</td><td>Binds vehicle + level + spot + entry time</td></tr>
+            <tr><td>EntryGate</td><td>Accepts vehicle, delegates to Building, returns Ticket</td></tr>
+            <tr><td>ExitGate</td><td>Price → Pay → Release</td></tr>
+            <tr><td>ParkingLot</td><td>Top container — building + gates</td></tr>
+          </table>
+        </div>
+      </div>
+
+      <div class="topic-block">
+        <button class="topic-toggle" onclick="toggleEl(this)">
+          <span class="t-caret">▶</span><span class="t-num">3.</span>
+          <span class="t-title">Three Strategy Patterns</span>
+        </button>
+        <div class="topic-body">
+          <div class="code-block">                    PARKING LOT
+                         |
+          +--------------+--------------+
+          |              |              |
+    Spot Selection    Pricing        Payment
+          |              |              |
+       Strategy       Strategy       Strategy
+          |              |              |
+     First/Nearest    Fixed/Hourly   Cash/UPI/Card</div>
+          <div class="tip-box"><span class="label">TRIGGER</span>If "how to do something" can change → extract it as a Strategy.</div>
+        </div>
+      </div>
+
+      <div class="topic-block">
+        <button class="topic-toggle" onclick="toggleEl(this)">
+          <span class="t-caret">▶</span><span class="t-num">4.</span>
+          <span class="t-title">IS-A and HAS-A Relationships</span>
+        </button>
+        <div class="topic-body">
+          <div class="code-block"><span class="cm">// IS-A</span>
+TwoWheelerSpotManager   IS-A ParkingSpotManager
+FourWheelerSpotManager  IS-A ParkingSpotManager
+FixedPricingStrategy    IS-A PricingStrategy
+UPIPayment              IS-A PaymentStrategy
+
+<span class="cm">// HAS-A</span>
+ParkingLot     HAS-A Building
+ParkingLot     HAS-A List&lt;EntryGate&gt;
+ParkingLot     HAS-A List&lt;ExitGate&gt;
+Building       HAS-A List&lt;ParkingLevel&gt;
+ParkingLevel   HAS-A Map&lt;VehicleType, SpotManager&gt;
+SpotManager    HAS-A LookupStrategy</div>
+        </div>
+      </div>
+
+      <div class="topic-block" style="border-bottom:none">
+        <button class="topic-toggle" onclick="toggleEl(this)">
+          <span class="t-caret">▶</span><span class="t-num">5.</span>
+          <span class="t-title">One-Line Memory Trick</span>
+        </button>
+        <div class="topic-body">
+          <div class="info-box"><span class="label">INTERVIEW</span>Parking Lot contains the structure → Building finds the level → Level finds the manager → Manager finds the spot → Strategy decides HOW → Ticket remembers WHERE → Exit Gate calculates → pays → releases.</div>
+          <div class="tip-box"><span class="label">HIERARCHY</span>ParkingLot → Building → Level → SpotManager → ParkingSpot</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div><!-- /container -->
+
+<script>
+  function toggleEl(btn) {
+    const body = btn.nextElementSibling;
+    const isOpen = btn.classList.contains('open');
+    btn.classList.toggle('open', !isOpen);
+    body.classList.toggle('open', !isOpen);
+  }
+  function expandAll() {
+    document.querySelectorAll('.lecture-toggle,.topic-toggle,.sub-toggle,.final-toggle').forEach(btn => {
+      btn.classList.add('open');
+      btn.nextElementSibling.classList.add('open');
+    });
+  }
+  function collapseAll() {
+    document.querySelectorAll('.lecture-toggle,.topic-toggle,.sub-toggle,.final-toggle').forEach(btn => {
+      btn.classList.remove('open');
+      btn.nextElementSibling.classList.remove('open');
+    });
+  }
+</script>
+
+</body>
+</html>
